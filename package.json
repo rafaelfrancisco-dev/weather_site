@@ -10,6 +10,8 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@bjorn3/browser_wasi_shim": "0.3.0",
+    "ipma-weather-js": "file:./lib/ipma-weather-js",
     "nuxt": "^4.4.8",
     "vue": "^3.5.35",
     "vue-router": "^5.1.0"
