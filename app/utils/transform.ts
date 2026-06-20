@@ -13,7 +13,6 @@ import type {
   JSLookupDescription
 } from '~/utils/ipma-types'
 
-const REGION_ORDER = [1, 2, 3]
 const REGION_LABELS: Record<number, { en: string, pt: string }> = {
   1: { en: 'Mainland', pt: 'Continente' },
   2: { en: 'Madeira', pt: 'Madeira' },
@@ -54,8 +53,8 @@ export interface TreeLocation {
   warnColor: string
 }
 
-export interface TreeRegion {
-  id: number
+export interface TreeGroup {
+  id: string
   name: string
   open: boolean
   caret: number
@@ -64,26 +63,42 @@ export interface TreeRegion {
   warnColor: string
 }
 
-export function buildRegionTree(
+function groupKeyFor(loc: JSLocation, districtMap: Map<number, JSDistrict>, lang: Lang): { key: string, name: string, tier: number } {
+  if (loc.regionID === 1) {
+    const district = districtMap.get(loc.districtID)
+    return { key: `d-${loc.districtID}`, name: district?.name ?? `District ${loc.districtID}`, tier: 0 }
+  }
+  return { key: `r-${loc.regionID}`, name: regionLabel(loc.regionID, lang), tier: loc.regionID }
+}
+
+export function buildLocationTree(
   locations: JSLocation[],
+  districtMap: Map<number, JSDistrict>,
   warningsByArea: Map<string, JSWeatherWarning[]>,
   selectedId: number | null,
-  openMap: Record<number, boolean>,
+  openMap: Record<string, boolean>,
   query: string,
   lang: Lang
-): TreeRegion[] {
+): TreeGroup[] {
   const q = query.trim().toLowerCase()
-  const byRegion = new Map<number, JSLocation[]>()
+  const groups = new Map<string, { name: string, tier: number, locs: JSLocation[] }>()
   for (const loc of locations) {
     if (q && !loc.name.toLowerCase().includes(q)) continue
-    if (!byRegion.has(loc.regionID)) byRegion.set(loc.regionID, [])
-    byRegion.get(loc.regionID)!.push(loc)
+    const { key, name, tier } = groupKeyFor(loc, districtMap, lang)
+    if (!groups.has(key)) groups.set(key, { name, tier, locs: [] })
+    groups.get(key)!.locs.push(loc)
   }
 
-  const regionIDs = [...byRegion.keys()].sort((a, b) => REGION_ORDER.indexOf(a) - REGION_ORDER.indexOf(b))
+  const keys = [...groups.keys()].sort((a, b) => {
+    const ga = groups.get(a)!
+    const gb = groups.get(b)!
+    if (ga.tier !== gb.tier) return ga.tier - gb.tier
+    return ga.name.localeCompare(gb.name)
+  })
 
-  return regionIDs.map((regionID) => {
-    const locs = byRegion.get(regionID)!.slice().sort((a, b) => a.name.localeCompare(b.name))
+  return keys.map((key) => {
+    const group = groups.get(key)!
+    const locs = group.locs.slice().sort((a, b) => a.name.localeCompare(b.name))
     let warnMax = 0
     let warnMaxLevel: WarningLevel = 'green'
     let warnCount = 0
@@ -115,10 +130,10 @@ export function buildRegionTree(
     })
 
     return {
-      id: regionID,
-      name: regionLabel(regionID, lang),
-      open: openMap[regionID] !== false,
-      caret: openMap[regionID] !== false ? 90 : 0,
+      id: key,
+      name: group.name,
+      open: openMap[key] !== false,
+      caret: openMap[key] !== false ? 90 : 0,
       locs: treeLocs,
       warnCount,
       warnColor: warnCount > 0 ? levelColor(warnMaxLevel) : 'transparent'

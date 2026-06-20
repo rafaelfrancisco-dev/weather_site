@@ -1,4 +1,5 @@
 import type { AccentTheme } from '~/utils/colors'
+import type { Lang } from '~/utils/i18n'
 
 export type Density = 'Comfortable' | 'Compact'
 
@@ -6,11 +7,12 @@ export interface Settings {
   accent: AccentTheme
   density: Density
   hourlyBars: boolean
+  lang: Lang
 }
 
 const STORAGE_KEY = 'metpt-settings'
 
-const state = ref<Settings>({ accent: 'Institutional blue', density: 'Comfortable', hourlyBars: false })
+const state = ref<Settings>({ accent: 'Institutional blue', density: 'Comfortable', hourlyBars: false, lang: 'en' })
 let loaded = false
 
 function load() {

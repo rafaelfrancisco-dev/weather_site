@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { TreeRegion } from '~/utils/transform'
+import type { TreeGroup } from '~/utils/transform'
+import { locationHref } from '~/utils/slug'
 
 const props = defineProps<{
-  tree: TreeRegion[]
+  tree: TreeGroup[]
   t: Record<string, string>
   mobile: boolean
   navOpen: boolean
@@ -12,8 +13,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  toggleRegion: [number]
-  selectLocation: [number]
+  toggleRegion: [string]
   'update:query': [string]
   closeNav: []
 }>()
@@ -67,22 +67,24 @@ const emit = defineEmits<{
       </button>
 
       <div v-if="region.open" style="padding-bottom:4px;">
-        <button
+        <NuxtLink
           v-for="loc in region.locs"
           :key="loc.id"
+          :to="locationHref(loc.id, loc.name)"
           :style="{
             width: '100%', display: 'flex', alignItems: 'center', gap: '8px', border: 'none',
             borderLeft: `3px solid ${loc.selected ? props.primary : 'transparent'}`,
             background: loc.selected ? props.soft : 'transparent',
             cursor: 'pointer', padding: props.mobile ? '12px 16px 12px 28px' : '7px 16px 7px 28px',
             fontFamily: 'inherit', fontSize: '12.5px', fontWeight: loc.selected ? 600 : 450,
-            color: loc.selected ? props.primary : 'oklch(0.38 0.012 255)', textAlign: 'left'
+            color: loc.selected ? props.primary : 'oklch(0.38 0.012 255)', textAlign: 'left',
+            textDecoration: 'none', boxSizing: 'border-box'
           }"
-          @click="emit('selectLocation', loc.id)"
+          @click="emit('closeNav')"
         >
           <span style="flex:1;">{{ loc.name }}</span>
           <span v-if="loc.warn" :style="{ width: '8px', height: '8px', borderRadius: '50%', background: loc.warnColor, flex: 'none' }"></span>
-        </button>
+        </NuxtLink>
       </div>
     </div>
 
