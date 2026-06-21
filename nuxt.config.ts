@@ -18,5 +18,6 @@ export default defineNuxtConfig({
     devStorage: {
       cache: { driver: 'fs', base: './.data/cache' }
     }
-  }
+  },
+  modules: ['@vercel/analytics', '@vercel/speed-insights']
 })
