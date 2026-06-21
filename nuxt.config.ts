@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   },
   nitro: {
     storage: {
-      cache: { driver: 'upstash' }
+      cache: { driver: 'redis', url: process.env.REDIS_URL }
     },
     devStorage: {
       cache: { driver: 'fs', base: './.data/cache' }

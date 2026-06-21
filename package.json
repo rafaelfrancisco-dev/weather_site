@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "0.3.0",
-    "@upstash/redis": "^1.38.0",
+    "ioredis": "^5.4.1",
     "ipma-weather-js": "file:./lib/ipma-weather-js",
     "nuxt": "^4.4.8",
     "vue": "^3.5.35",
