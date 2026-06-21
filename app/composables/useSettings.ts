@@ -16,7 +16,7 @@ const state = ref<Settings>({ accent: 'Institutional blue', density: 'Comfortabl
 let loaded = false
 
 function load() {
-  if (loaded) return
+  if (loaded || !import.meta.client) return
   loaded = true
   const raw = localStorage.getItem(STORAGE_KEY)
   if (raw) {

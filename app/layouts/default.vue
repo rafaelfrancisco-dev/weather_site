@@ -12,10 +12,6 @@ const open = ref<Record<string, boolean>>({})
 const { mobile } = useViewport()
 const settings = useSettings()
 const {
-  ready,
-  clientError
-} = useIpmaClient()
-const {
   locations,
   districtMap,
   warningsByArea,
@@ -61,13 +57,7 @@ useHead({
 </script>
 
 <template>
-  <div v-if="!ready" style="height:100vh; display:flex; align-items:center; justify-content:center; color:oklch(0.4 0.012 255); font-size:14px;">
-    Loading weather engine…
-  </div>
-  <div v-else-if="clientError" style="height:100vh; display:flex; align-items:center; justify-content:center; color:oklch(0.55 0.21 27); font-size:14px;">
-    {{ clientError }}
-  </div>
-  <div v-else-if="bootstrapError" style="height:100vh; display:flex; align-items:center; justify-content:center; color:oklch(0.55 0.21 27); font-size:14px;">
+  <div v-if="bootstrapError" style="height:100vh; display:flex; align-items:center; justify-content:center; color:oklch(0.55 0.21 27); font-size:14px;">
     {{ bootstrapError }}
   </div>
   <div v-else-if="!bootstrapped" style="height:100vh; display:flex; align-items:center; justify-content:center; color:oklch(0.4 0.012 255); font-size:14px;">

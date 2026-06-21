@@ -7,7 +7,7 @@ function onResize() {
 }
 
 export function useViewport() {
-  if (!listening) {
+  if (import.meta.client && !listening) {
     listening = true
     onResize()
     window.addEventListener('resize', onResize)

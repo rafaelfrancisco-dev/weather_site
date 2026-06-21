@@ -4,46 +4,37 @@ import type {
   JSWeatherWarning,
   JSLookupDescription,
   JSStationObservationFeature
-} from '~/utils/ipma-types'
+} from '#shared/ipma-types'
 import { createLabelLookup } from '~/utils/transform'
 
-const locations = ref<JSLocation[]>([])
-const districts = ref<JSDistrict[]>([])
-const warnings = ref<JSWeatherWarning[]>([])
-const weatherTypeDescriptions = ref<JSLookupDescription[]>([])
-const observations = ref<JSStationObservationFeature[]>([])
-const bootstrapped = ref(false)
-const bootstrapError = ref<string | null>(null)
-let started = false
+interface Bootstrap {
+  locations: JSLocation[]
+  districts: JSDistrict[]
+  warnings: JSWeatherWarning[]
+  weatherTypeDescriptions: JSLookupDescription[]
+  observations: JSStationObservationFeature[]
+}
 
 export function useLocationsData() {
-  const { client, ready } = useIpmaClient()
+  const requestFetch = useRequestFetch()
+  const { data, error } = useAsyncData<Bootstrap>('ipma-bootstrap', async () => {
+    const [locations, districts, warnings, weatherTypeDescriptions, observations] = await Promise.all([
+      requestFetch<JSLocation[]>('/api/locations'),
+      requestFetch<JSDistrict[]>('/api/districts'),
+      requestFetch<JSWeatherWarning[]>('/api/warnings'),
+      requestFetch<JSLookupDescription[]>('/api/weather-types'),
+      requestFetch<JSStationObservationFeature[]>('/api/observations')
+    ])
+    return { locations, districts, warnings, weatherTypeDescriptions, observations }
+  })
 
-  async function bootstrap() {
-    if (!client.value) return
-    try {
-      const [locs, dists, warns, descs, obs] = await Promise.all([
-        client.value.forecastLocations(),
-        client.value.districts(),
-        client.value.weatherWarnings(),
-        client.value.weatherTypeDescriptions(),
-        client.value.latestStationObservations()
-      ])
-      locations.value = locs
-      districts.value = dists
-      warnings.value = warns
-      weatherTypeDescriptions.value = descs
-      observations.value = obs
-      bootstrapped.value = true
-    } catch (e) {
-      bootstrapError.value = e instanceof Error ? e.message : String(e)
-    }
-  }
-
-  if (!started) {
-    started = true
-    watch(ready, (isReady) => { if (isReady) bootstrap() }, { immediate: true })
-  }
+  const locations = computed(() => data.value?.locations ?? [])
+  const districts = computed(() => data.value?.districts ?? [])
+  const warnings = computed(() => data.value?.warnings ?? [])
+  const weatherTypeDescriptions = computed(() => data.value?.weatherTypeDescriptions ?? [])
+  const observations = computed(() => data.value?.observations ?? [])
+  const bootstrapped = computed(() => data.value != null)
+  const bootstrapError = computed(() => error.value ? (error.value.message ?? String(error.value)) : null)
 
   const districtMap = computed(() => new Map(districts.value.map(d => [d.id, d])))
 

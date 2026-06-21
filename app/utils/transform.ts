@@ -11,7 +11,7 @@ import type {
   JSHourlyForecastPeriod,
   JSStationObservationFeature,
   JSLookupDescription
-} from '~/utils/ipma-types'
+} from '#shared/ipma-types'
 
 const REGION_LABELS: Record<number, { en: string, pt: string }> = {
   1: { en: 'Mainland', pt: 'Continente' },
