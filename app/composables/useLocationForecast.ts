@@ -26,11 +26,10 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
   const selectedLocation = computed(() => locations.value.find(l => l.id === id.value) ?? null)
 
   const { data: forecast, pending: forecastLoading, error: forecastErrorRaw } = useAsyncData<ForecastResult | null>(
-    'ipma-forecast',
+    () => `ipma-forecast-${selectedLocation.value?.id ?? 'none'}`,
     () => selectedLocation.value
       ? requestFetch<ForecastResult>(`/api/forecast/${selectedLocation.value.id}`)
-      : Promise.resolve(null),
-    { watch: [selectedLocation] }
+      : Promise.resolve(null)
   )
 
   const forecastError = computed(() => forecastErrorRaw.value

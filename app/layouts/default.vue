@@ -44,7 +44,8 @@ function closeNav() {
   navOpen.value = false
 }
 function toggleRegion(id: string) {
-  const currentlyOpen = open.value[id] !== false
+  const group = tree.value.find(g => g.id === id)
+  const currentlyOpen = group ? group.open : false
   open.value = { ...open.value, [id]: !currentlyOpen }
 }
 function setLang(l: 'en' | 'pt') {
@@ -92,7 +93,7 @@ useHead({
       />
 
       <main style="flex:1; min-width:0; overflow-y:auto; background:oklch(0.975 0.004 250);">
-        <div :style="{ padding: mobile ? '14px 14px 36px' : '18px 22px 40px', maxWidth: '1180px' }">
+        <div :style="{ padding: mobile ? '14px 14px 36px' : '18px 22px 40px' }">
           <slot />
         </div>
       </main>

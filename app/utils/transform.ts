@@ -129,11 +129,14 @@ export function buildLocationTree(
       }
     })
 
+    const containsSelected = selectedId !== null && treeLocs.some(l => l.id === selectedId)
+    const isOpen = openMap[key] !== undefined ? openMap[key] : containsSelected
+
     return {
       id: key,
       name: group.name,
-      open: openMap[key] !== false,
-      caret: openMap[key] !== false ? 90 : 0,
+      open: isOpen,
+      caret: isOpen ? 90 : 0,
       locs: treeLocs,
       warnCount,
       warnColor: warnCount > 0 ? levelColor(warnMaxLevel) : 'transparent'
