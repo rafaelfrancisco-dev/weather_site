@@ -19,5 +19,15 @@ export default defineNuxtConfig({
       cache: { driver: 'fs', base: './.data/cache' }
     }
   },
+  // CDN-cache these alongside the Redis TTLs in server/utils/ipma.ts so repeat
+  // requests are served by Vercel's edge instead of invoking the function.
+  routeRules: {
+    '/api/locations': { cache: { swr: true, maxAge: 86400 } },
+    '/api/districts': { cache: { swr: true, maxAge: 86400 } },
+    '/api/weather-types': { cache: { swr: true, maxAge: 86400 } },
+    '/api/warnings': { cache: { swr: true, maxAge: 600 } },
+    '/api/observations': { cache: { swr: true, maxAge: 3600 } },
+    '/api/forecast/**': { cache: { swr: true, maxAge: 3600 } }
+  },
   modules: ['@vercel/analytics', '@vercel/speed-insights']
 })
