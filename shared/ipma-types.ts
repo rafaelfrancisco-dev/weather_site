@@ -1,4 +1,4 @@
-import type { Exports } from 'ipma-weather-js'
+import type { Exports } from '@rafaelfrancisco-dev/ipma-weather-js'
 
 export type IPMAWeatherClient = InstanceType<Exports['IPMAWeatherClient']>
 export type JSLocation = ReturnType<Exports['JSLocation']['init']>

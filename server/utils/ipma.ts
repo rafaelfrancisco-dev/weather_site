@@ -1,52 +1,52 @@
-import { init } from 'ipma-weather-js'
+import { init } from '@rafaelfrancisco-dev/ipma-weather-js'
 import type { IPMAWeatherClient } from '#shared/ipma-types'
 import type { H3Event } from 'h3'
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 
-// The wasm module is too large to bundle (base64-inlining 46MB blows up the
-// build). It stays a plain public static asset and we fetch it ourselves,
-// server-side, the same way the browser used to — just once per warm
-// instance, never by visitors.
+// Loaded once per warm instance, straight from the package's own wasm
+// binary in node_modules — no public static asset, no per-request fetch.
 let clientPromise: Promise<IPMAWeatherClient> | null = null
 
-function loadClient(event: H3Event): Promise<IPMAWeatherClient> {
-  const config = useRuntimeConfig()
-  const wasmPath = `${config.app.baseURL}ipma-weather-js.opt.wasm`.replace(/\/+/g, '/')
-  const wasmUrl = new URL(wasmPath, getRequestURL(event)).toString()
-  return init({ module: fetch(wasmUrl), getImports: () => ({}) })
-    .then(({ exports }) => new exports.IPMAWeatherClient())
+async function loadClient(): Promise<IPMAWeatherClient> {
+  const wasmUrl = import.meta.resolve('@rafaelfrancisco-dev/ipma-weather-js/wasm')
+  const wasmBytes = await readFile(fileURLToPath(wasmUrl))
+  const module = await WebAssembly.compile(wasmBytes)
+  const { exports } = await init({ module, getImports: () => ({}) })
+  return new exports.IPMAWeatherClient()
 }
 
-function getIpmaClient(event: H3Event): Promise<IPMAWeatherClient> {
-  if (!clientPromise) clientPromise = loadClient(event)
+function getIpmaClient(): Promise<IPMAWeatherClient> {
+  if (!clientPromise) clientPromise = loadClient()
   return clientPromise
 }
 
 export const cachedLocations = defineCachedFunction(
-  async (event: H3Event) => (await getIpmaClient(event)).forecastLocations(),
+  async (_event: H3Event) => (await getIpmaClient()).forecastLocations(),
   { name: 'ipma', getKey: () => 'locations', maxAge: 86400 }
 )
 
 export const cachedDistricts = defineCachedFunction(
-  async (event: H3Event) => (await getIpmaClient(event)).districts(),
+  async (_event: H3Event) => (await getIpmaClient()).districts(),
   { name: 'ipma', getKey: () => 'districts', maxAge: 86400 }
 )
 
 export const cachedWeatherTypes = defineCachedFunction(
-  async (event: H3Event) => (await getIpmaClient(event)).weatherTypeDescriptions(),
+  async (_event: H3Event) => (await getIpmaClient()).weatherTypeDescriptions(),
   { name: 'ipma', getKey: () => 'weather-types', maxAge: 86400 }
 )
 
 export const cachedWarnings = defineCachedFunction(
-  async (event: H3Event) => (await getIpmaClient(event)).weatherWarnings(),
+  async (_event: H3Event) => (await getIpmaClient()).weatherWarnings(),
   { name: 'ipma', getKey: () => 'warnings', maxAge: 600 }
 )
 
 export const cachedObservations = defineCachedFunction(
-  async (event: H3Event) => (await getIpmaClient(event)).latestStationObservations(),
+  async (_event: H3Event) => (await getIpmaClient()).latestStationObservations(),
   { name: 'ipma', getKey: () => 'observations', maxAge: 3600 }
 )
 
 export const cachedForecast = defineCachedFunction(
-  async (event: H3Event, locationId: number) => (await getIpmaClient(event)).aggregateForecast(locationId),
+  async (_event: H3Event, locationId: number) => (await getIpmaClient()).aggregateForecast(locationId),
   { name: 'ipma', getKey: (_event: H3Event, locationId: number) => `forecast:${locationId}`, maxAge: 3600 }
 )
