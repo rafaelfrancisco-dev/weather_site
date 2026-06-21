@@ -1,3 +1,19 @@
+import { mkdirSync, copyFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+
+// Nitro rewrites `import.meta.resolve`/`import.meta.url` inside bundled server
+// chunks, so resolving the wasm binary at runtime (server/utils/ipma.ts) isn't
+// reliable across deploy targets. Resolve it here instead, while this config
+// still runs as plain Node, and stage it as a Nitro server asset so it ships
+// with the function without being committed to the repo.
+const ipmaWasmDir = fileURLToPath(new URL('./.nitro/ipma-wasm', import.meta.url))
+mkdirSync(ipmaWasmDir, { recursive: true })
+copyFileSync(
+  fileURLToPath(import.meta.resolve('@rafaelfrancisco-dev/ipma-weather-js/wasm')),
+  join(ipmaWasmDir, 'ipma-weather-js.wasm')
+)
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -12,6 +28,7 @@ export default defineNuxtConfig({
     }
   },
   nitro: {
+    serverAssets: [{ baseName: 'ipma', dir: ipmaWasmDir }],
     storage: {
       cache: { driver: 'redis', url: process.env.REDIS_URL }
     },

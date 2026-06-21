@@ -1,16 +1,14 @@
 import { init } from '@rafaelfrancisco-dev/ipma-weather-js'
 import type { IPMAWeatherClient } from '#shared/ipma-types'
 import type { H3Event } from 'h3'
-import { readFile } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
 
-// Loaded once per warm instance, straight from the package's own wasm
-// binary in node_modules — no public static asset, no per-request fetch.
+// Loaded once per warm instance, from the wasm binary Nitro bundles as a
+// server asset (see nuxt.config.ts) — import.meta.resolve/url get rewritten
+// inside Nitro's bundled chunks, so they can't be used to find it at runtime.
 let clientPromise: Promise<IPMAWeatherClient> | null = null
 
 async function loadClient(): Promise<IPMAWeatherClient> {
-  const wasmUrl = import.meta.resolve('@rafaelfrancisco-dev/ipma-weather-js/wasm')
-  const wasmBytes = await readFile(fileURLToPath(wasmUrl))
+  const wasmBytes = await useStorage('assets:ipma').getItemRaw('ipma-weather-js.wasm')
   const module = await WebAssembly.compile(wasmBytes)
   const { exports } = await init({ module, getImports: () => ({}) })
   return new exports.IPMAWeatherClient()
