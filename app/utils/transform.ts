@@ -2,7 +2,7 @@ import type { Lang } from '~/utils/i18n'
 import { weekday, monthShort } from '~/utils/i18n'
 import { tempColor, tempBg, precipColor, precipBg, windBg, uvColor, levelColor, levelSoft, levelLabelTxt, levelRank } from '~/utils/colors'
 import type { WarningLevel } from '~/utils/colors'
-import { windArrowDeg, hourLabel, dateKey, isDaytime } from '~/utils/format'
+import { windArrowDeg, hourLabel, dateKey, isDaytime, dateTimeLabel } from '~/utils/format'
 import type {
   JSLocation,
   JSDistrict,
@@ -160,9 +160,7 @@ export function buildLocationMeta(
 ): LocationMeta {
   const lat = Math.abs(location.latitude).toFixed(2) + '°' + (location.latitude >= 0 ? 'N' : 'S')
   const lon = Math.abs(location.longitude).toFixed(2) + '°' + (location.longitude >= 0 ? 'E' : 'W')
-  const updated = dataUpdate
-    ? new Date(dataUpdate).toLocaleString(lang === 'pt' ? 'pt-PT' : 'en-GB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
-    : '—'
+  const updated = dataUpdate ? dateTimeLabel(new Date(dataUpdate), lang) : '—'
   return {
     name: location.name,
     region: regionLabel(location.regionID, lang),
@@ -200,7 +198,7 @@ export function buildWarningBanner(warnings: JSWeatherWarning[], lang: Lang, war
   }
 
   const level = normalizeLevel(top)
-  const fmt = (iso: string) => new Date(iso).toLocaleString(lang === 'pt' ? 'pt-PT' : 'en-GB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+  const fmt = (iso: string) => dateTimeLabel(new Date(iso), lang)
 
   return {
     hasWarn: true,

@@ -1,3 +1,6 @@
+import type { Lang } from '~/utils/i18n'
+import { monthShort } from '~/utils/i18n'
+
 const DIRS: Record<string, number> = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 }
 
 export function windArrowDeg(dir: string | null | undefined): number {
@@ -16,6 +19,12 @@ export function hourLabel(isoDate: string): string {
 export function dateKey(isoDate: string): string {
   const d = new Date(isoDate)
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+export function dateTimeLabel(date: Date, lang: Lang): string {
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${date.getDate()} ${monthShort(date, lang)}, ${hh}:${mm}`
 }
 
 export function isDaytime(isoDate: string): boolean {
