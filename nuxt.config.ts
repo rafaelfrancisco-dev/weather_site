@@ -18,9 +18,6 @@ copyFileSync(
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  experimental: {
-    viewTransition: true
-  },
   site: {
     url: process.env.NUXT_SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined),
     name: 'MET·PT',
