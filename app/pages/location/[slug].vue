@@ -17,6 +17,12 @@ const c = computed(() => accentColors(settings.value.accent))
 const id = computed(() => parseLocationId(route.params.slug as string))
 const found = computed(() => id.value != null && locations.value.some(l => l.id === id.value))
 
+watchEffect(() => {
+  if (found.value && id.value != null) {
+    settings.value.lastLocationId = id.value
+  }
+})
+
 const {
   locationMeta,
   warningBanner,

@@ -8,13 +8,14 @@ export interface Settings {
   density: Density
   hourlyBars: boolean
   lang: Lang
+  lastLocationId: number | null
 }
 
 const STORAGE_KEY = 'metpt-settings'
 
 const state = useLocalStorage<Settings>(
   STORAGE_KEY,
-  { accent: 'Institutional blue', density: 'Comfortable', hourlyBars: false, lang: 'en' },
+  { accent: 'Institutional blue', density: 'Comfortable', hourlyBars: false, lang: 'en', lastLocationId: null },
   { mergeDefaults: true }
 )
 

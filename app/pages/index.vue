@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { locationHref } from '#shared/slug'
 
+const settings = useSettings()
 const { locations } = useLocationsData()
-const target = locations.value.find(l => l.name === 'Lisboa') ?? locations.value[0]
+const target = locations.value.find(l => l.id === settings.value.lastLocationId)
+  ?? locations.value.find(l => l.name === 'Lisboa')
+  ?? locations.value[0]
 if (target) {
   await navigateTo(locationHref(target.id, target.name), { replace: true })
 }
