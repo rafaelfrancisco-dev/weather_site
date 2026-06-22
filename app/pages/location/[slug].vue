@@ -22,8 +22,7 @@ const {
   warningBanner,
   dailyRows,
   hourlyGrid,
-  obsRows,
-  obsCards
+  observationGrid
 } = useLocationForecast(id, lang, t)
 
 const tabs = computed(() => [
@@ -55,6 +54,6 @@ watch(locationMeta, (meta) => {
     </div>
 
     <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :mobile="mobile" :t="t" />
-    <ObservationsTab v-if="tab === 'obs'" :obs-rows="obsRows" :obs-cards="obsCards" :mobile="mobile" :t="t" />
+    <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" />
   </template>
 </template>

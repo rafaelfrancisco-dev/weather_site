@@ -7,9 +7,7 @@ import {
   buildWarningBanner,
   buildDailyRows,
   buildHourlyGrid,
-  nearestObservations,
-  buildObservationRows,
-  buildObservationCards
+  buildObservationGrid
 } from '~/utils/transform'
 
 interface ForecastResult {
@@ -19,7 +17,7 @@ interface ForecastResult {
 }
 
 export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: Ref<Record<string, string>>) {
-  const { locations, districtMap, warningsByArea, observations, labelFor } = useLocationsData()
+  const { locations, districtMap, warningsByArea, stations, observations, labelFor } = useLocationsData()
   const settings = useSettings()
   const requestFetch = useRequestFetch()
 
@@ -62,13 +60,10 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     : { dayHeaders: [], timeCols: [], hourRows: [], hourDays: [] }
   )
 
-  const nearestObs = computed(() => selectedLocation.value
-    ? nearestObservations(observations.value, selectedLocation.value.latitude, selectedLocation.value.longitude, 5)
-    : []
+  const observationGrid = computed(() => selectedLocation.value
+    ? buildObservationGrid(stations.value, observations.value, selectedLocation.value.latitude, selectedLocation.value.longitude, lang.value, t.value, c.value.primary, c.value.soft)
+    : buildObservationGrid([], [], 0, 0, lang.value, t.value, c.value.primary, c.value.soft)
   )
-
-  const obsRows = computed(() => buildObservationRows(nearestObs.value))
-  const obsCards = computed(() => buildObservationCards(nearestObs.value, t.value))
 
   return {
     forecast,
@@ -79,8 +74,7 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     warningBanner,
     dailyRows,
     hourlyGrid,
-    obsRows,
-    obsCards,
+    observationGrid,
     c
   }
 }

@@ -6,5 +6,6 @@ export type JSDistrict = ReturnType<Exports['JSDistrict']['init']>
 export type JSWeatherWarning = ReturnType<Exports['JSWeatherWarning']['init']>
 export type JSAggregateForecastDay = ReturnType<Exports['JSAggregateForecastDay']['init']>
 export type JSHourlyForecastPeriod = ReturnType<Exports['JSHourlyForecastPeriod']['init']>
-export type JSStationObservationFeature = ReturnType<Exports['JSStationObservationFeature']['init']>
+export type JSStation = ReturnType<Exports['JSStation']['init']>
+export type JSStationObservation = ReturnType<Exports['JSStationObservation']['init']>
 export type JSLookupDescription = ReturnType<Exports['JSLookupDescription']['init']>

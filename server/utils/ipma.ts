@@ -39,8 +39,13 @@ export const cachedWarnings = defineCachedFunction(
   { name: 'ipma', getKey: () => 'warnings', maxAge: 600 }
 )
 
+export const cachedStations = defineCachedFunction(
+  async (_event: H3Event) => (await getIpmaClient()).stations(),
+  { name: 'ipma', getKey: () => 'stations', maxAge: 86400 }
+)
+
 export const cachedObservations = defineCachedFunction(
-  async (_event: H3Event) => (await getIpmaClient()).latestStationObservations(),
+  async (_event: H3Event) => (await getIpmaClient()).stationObservations(),
   { name: 'ipma', getKey: () => 'observations', maxAge: 3600 }
 )
 

@@ -3,16 +3,23 @@ import type {
   JSDistrict,
   JSWeatherWarning,
   JSLookupDescription,
-  JSStationObservationFeature
+  JSStation,
+  JSStationObservation
 } from '#shared/ipma-types'
 import { createLabelLookup } from '~/utils/transform'
+
+interface ObservationsPayload {
+  stations: JSStation[]
+  observations: JSStationObservation[]
+}
 
 interface Bootstrap {
   locations: JSLocation[]
   districts: JSDistrict[]
   warnings: JSWeatherWarning[]
   weatherTypeDescriptions: JSLookupDescription[]
-  observations: JSStationObservationFeature[]
+  stations: JSStation[]
+  observations: JSStationObservation[]
 }
 
 export function useLocationsData() {
@@ -23,15 +30,16 @@ export function useLocationsData() {
       requestFetch<JSDistrict[]>('/api/districts'),
       requestFetch<JSWeatherWarning[]>('/api/warnings'),
       requestFetch<JSLookupDescription[]>('/api/weather-types'),
-      requestFetch<JSStationObservationFeature[]>('/api/observations')
+      requestFetch<ObservationsPayload>('/api/observations')
     ])
-    return { locations, districts, warnings, weatherTypeDescriptions, observations }
+    return { locations, districts, warnings, weatherTypeDescriptions, stations: observations.stations, observations: observations.observations }
   })
 
   const locations = computed(() => data.value?.locations ?? [])
   const districts = computed(() => data.value?.districts ?? [])
   const warnings = computed(() => data.value?.warnings ?? [])
   const weatherTypeDescriptions = computed(() => data.value?.weatherTypeDescriptions ?? [])
+  const stations = computed(() => data.value?.stations ?? [])
   const observations = computed(() => data.value?.observations ?? [])
   const bootstrapped = computed(() => data.value != null)
   const bootstrapError = computed(() => error.value ? (error.value.message ?? String(error.value)) : null)
@@ -53,6 +61,7 @@ export function useLocationsData() {
     locations,
     districts,
     warnings,
+    stations,
     observations,
     bootstrapped,
     bootstrapError,

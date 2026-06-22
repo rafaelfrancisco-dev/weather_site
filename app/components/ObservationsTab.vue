@@ -1,74 +1,58 @@
 <script setup lang="ts">
-import type { ObsRow } from '~/utils/transform'
+import type { ObservationGrid } from '~/utils/transform'
 
 const props = defineProps<{
-  obsRows: ObsRow[]
-  obsCards: { station: string, time: string, metrics: { k: string, v: string, c: string }[] }[]
-  mobile: boolean
+  observationGrid: ObservationGrid
   t: Record<string, string>
 }>()
-
-const obsCols = computed(() => [
-  { label: props.t.station, align: 'left' },
-  { label: props.t.time, align: 'center' },
-  { label: `${props.t.temp} °C`, align: 'right' },
-  { label: `${props.t.humidity} %`, align: 'right' },
-  { label: `${props.t.pressure} hPa`, align: 'right' },
-  { label: `${props.t.wind} km/h`, align: 'center' },
-  { label: `${props.t.precip} mm`, align: 'right' },
-  { label: `${props.t.solar} W/m²`, align: 'right' }
-])
 </script>
 
 <template>
   <div>
-    <div style="font-size:13.5px; font-weight:600; color:oklch(0.30 0.012 255); margin-bottom:8px;">{{ props.t.obsTitle }}</div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:13.5px; font-weight:600; color:oklch(0.30 0.012 255);">{{ props.t.obsTitle }}</div>
+      <div style="font-size:11.5px; color:oklch(0.55 0.01 255); margin-top:3px;">{{ props.observationGrid.summary }}</div>
+    </div>
 
-    <!-- desktop table -->
-    <div v-if="!props.mobile" style="border:1px solid oklch(0.89 0.008 255); border-radius:7px; overflow:hidden; background:#fff;">
+    <div style="border:1px solid oklch(0.86 0.01 255); border-radius:6px; overflow:hidden; background:#fff;">
       <div style="overflow-x:auto;">
-        <table style="border-collapse:collapse; width:100%; min-width:760px;">
+        <table style="border-collapse:collapse; width:100%; min-width:640px; table-layout:fixed;">
           <thead>
-            <tr style="background:oklch(0.97 0.005 255);">
+            <tr>
+              <th style="position:sticky; left:0; z-index:7; width:118px; min-width:118px; background:oklch(0.945 0.008 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:1px solid oklch(0.88 0.008 255); padding:7px 10px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.45 0.012 255);">{{ props.observationGrid.stationLabel }}</th>
+              <th style="position:sticky; left:118px; z-index:7; width:84px; min-width:84px; background:oklch(0.96 0.006 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:2px solid oklch(0.84 0.012 255); padding:7px 9px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.5 0.012 255);">{{ props.observationGrid.paramLabel }}</th>
               <th
-                v-for="(oc, i) in obsCols"
+                v-for="(tc, i) in props.observationGrid.timeCols"
                 :key="i"
-                :style="{ padding: '8px 10px', fontSize: '10.5px', fontWeight: 600, color: 'oklch(0.5 0.01 255)', borderBottom: '1px solid oklch(0.88 0.008 255)', letterSpacing: '0.03em', textTransform: 'uppercase', textAlign: oc.align, whiteSpace: 'nowrap' }"
-              >{{ oc.label }}</th>
+                :style="{ background: tc.bg, borderBottom: '2px solid oklch(0.82 0.012 255)', padding: '7px 4px', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11.5px', fontWeight: tc.weight, color: tc.color, textAlign: 'center' }"
+              >{{ tc.label }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(o, i) in props.obsRows" :key="i" :style="{ background: o.rowBg }">
-              <td style="padding:8px 10px; border-bottom:1px solid oklch(0.94 0.006 255); font-size:12.5px; font-weight:500; color:oklch(0.28 0.012 255); white-space:nowrap;">{{ o.station }}</td>
-              <td style="padding:8px 10px; border-bottom:1px solid oklch(0.94 0.006 255); font-family:'IBM Plex Mono',monospace; font-size:12px; color:oklch(0.5 0.01 255); text-align:center;">{{ o.time }}</td>
-              <td :style="{ padding: '8px 10px', borderBottom: '1px solid oklch(0.94 0.006 255)', fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px', fontWeight: 600, color: o.tempColor, textAlign: 'right' }">{{ o.temp }}°</td>
-              <td style="padding:8px 10px; border-bottom:1px solid oklch(0.94 0.006 255); font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:oklch(0.4 0.012 255); text-align:right;">{{ o.humidity }}%</td>
-              <td style="padding:8px 10px; border-bottom:1px solid oklch(0.94 0.006 255); font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:oklch(0.4 0.012 255); text-align:right;">{{ o.pressure }}</td>
-              <td style="padding:8px 10px; border-bottom:1px solid oklch(0.94 0.006 255); text-align:center; white-space:nowrap;">
-                <span :style="{ display: 'inline-block', fontSize: '12px', color: 'oklch(0.45 0.03 255)', transform: `rotate(${o.deg}deg)`, verticalAlign: 'middle' }">↑</span>
-                <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:oklch(0.45 0.012 255); margin-left:5px;">{{ o.windKmh }}</span>
+            <tr v-for="(r, ri) in props.observationGrid.rows" :key="ri">
+              <th
+                v-if="r.first"
+                :rowspan="r.stationRowspan"
+                :style="{ position: 'sticky', left: '0', zIndex: 6, width: '118px', minWidth: '118px', background: r.stationBg, borderTop: r.topBorder, borderRight: '1px solid oklch(0.88 0.008 255)', padding: '6px 10px', textAlign: 'left', verticalAlign: 'top', fontSize: '12px', fontWeight: 700, color: 'oklch(0.24 0.016 255)', lineHeight: 1.25 }"
+              >{{ r.station }}</th>
+              <th :style="{ position: 'sticky', left: '118px', zIndex: 5, width: '84px', minWidth: '84px', background: r.labelBg, borderTop: r.topBorder, borderRight: '2px solid oklch(0.84 0.012 255)', borderBottom: '1px solid oklch(0.95 0.005 255)', padding: '5px 9px', textAlign: 'left', fontSize: '11px', fontWeight: 500, color: 'oklch(0.42 0.012 255)', whiteSpace: 'nowrap' }">
+                {{ r.label }}
+                <span style="color:oklch(0.66 0.01 255); font-size:9.5px; font-weight:400;">{{ r.unit }}</span>
+              </th>
+              <td
+                v-for="(cell, ci) in r.cells"
+                :key="ci"
+                :style="{ borderTop: r.topBorder, borderBottom: '1px solid oklch(0.96 0.004 255)', borderLeft: cell.sideBorder, background: cell.bg, padding: '5px 4px', textAlign: 'center' }"
+              >
+                <div v-if="cell.isWind" style="display:flex; align-items:center; justify-content:center; gap:2px;">
+                  <span :style="{ fontSize: '10px', lineHeight: 1, color: 'oklch(0.45 0.03 255)', transform: `rotate(${cell.deg}deg)` }">↑</span>
+                  <span :style="{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', fontWeight: cell.weight, color: cell.color }">{{ cell.main }}</span>
+                </div>
+                <span v-if="cell.isText" :style="{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '12px', fontWeight: cell.weight, color: cell.color }">{{ cell.main }}</span>
               </td>
-              <td style="padding:8px 10px; border-bottom:1px solid oklch(0.94 0.006 255); font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:oklch(0.4 0.012 255); text-align:right;">{{ o.precip }}</td>
-              <td style="padding:8px 10px; border-bottom:1px solid oklch(0.94 0.006 255); font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:oklch(0.4 0.012 255); text-align:right;">{{ o.solar }}</td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
-
-    <!-- mobile cards -->
-    <div v-if="props.mobile" style="display:flex; flex-direction:column; gap:10px;">
-      <div v-for="(oc, i) in props.obsCards" :key="i" style="border:1px solid oklch(0.9 0.006 255); border-radius:10px; background:#fff; padding:12px 14px;">
-        <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:9px;">
-          <span style="font-size:13.5px; font-weight:600; color:oklch(0.26 0.018 255);">{{ oc.station }}</span>
-          <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.55 0.01 255);">{{ oc.time }}</span>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">
-          <div v-for="(m, mi) in oc.metrics" :key="mi" style="display:flex; align-items:baseline; justify-content:space-between; gap:8px; border-bottom:1px solid oklch(0.95 0.005 255); padding-bottom:4px;">
-            <span style="font-size:11px; color:oklch(0.5 0.01 255);">{{ m.k }}</span>
-            <span :style="{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '12.5px', fontWeight: 500, color: m.c }">{{ m.v }}</span>
-          </div>
-        </div>
       </div>
     </div>
     <div style="font-size:11px; color:oklch(0.55 0.01 255); margin-top:10px;">{{ props.t.obsNote }}</div>

@@ -9,7 +9,8 @@ import type {
   JSWeatherWarning,
   JSAggregateForecastDay,
   JSHourlyForecastPeriod,
-  JSStationObservationFeature,
+  JSStation,
+  JSStationObservation,
   JSLookupDescription
 } from '#shared/ipma-types'
 
@@ -417,68 +418,202 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
-export function nearestObservations(features: JSStationObservationFeature[], lat: number, lon: number, count: number): JSStationObservationFeature[] {
-  return features
+function nearestStationsWithObservations(
+  stations: JSStation[],
+  observations: JSStationObservation[],
+  lat: number,
+  lon: number,
+  count: number
+): JSStation[] {
+  const stationIds = new Set(observations.map(o => o.stationID))
+  return stations
+    .filter(s => stationIds.has(s.id))
     .slice()
     .sort((a, b) => {
-      const da = haversineKm(lat, lon, a.geometry.coordinates[1], a.geometry.coordinates[0])
-      const db = haversineKm(lat, lon, b.geometry.coordinates[1], b.geometry.coordinates[0])
+      const da = haversineKm(lat, lon, a.latitude, a.longitude)
+      const db = haversineKm(lat, lon, b.latitude, b.longitude)
       return da - db
     })
     .slice(0, count)
 }
 
-export interface ObsRow {
-  station: string
-  time: string
-  temp: string
-  tempColor: string
-  humidity: string
-  pressure: string
-  windKmh: string
+export interface ObservationGridCell {
+  isWind: boolean
+  isText: boolean
+  main: string
   deg: number
-  precip: string
-  solar: string
-  rowBg: string
+  weight: number
+  color: string
+  bg: string
+  sideBorder: string
 }
 
-function fmtNum(v: number | null | undefined, suffix = ''): string {
-  return v === null || v === undefined ? '—' : `${v}${suffix}`
+export interface ObservationGridRow {
+  first: boolean
+  station: string
+  stationRowspan: number
+  stationBg: string
+  labelBg: string
+  label: string
+  unit: string
+  cells: ObservationGridCell[]
+  topBorder: string
 }
 
-export function buildObservationRows(features: JSStationObservationFeature[]): ObsRow[] {
-  return features.map((f, i) => {
-    const p = f.properties
+export interface ObservationGrid {
+  rows: ObservationGridRow[]
+  timeCols: { label: string, bg: string, weight: number, color: string }[]
+  summary: string
+  stationLabel: string
+  paramLabel: string
+}
+
+function emptyObservationGrid(lang: Lang): ObservationGrid {
+  return {
+    rows: [],
+    timeCols: [],
+    summary: lang === 'pt' ? 'Sem observações disponíveis' : 'No observations available',
+    stationLabel: lang === 'pt' ? 'Estação' : 'Station',
+    paramLabel: lang === 'pt' ? 'Parâmetro' : 'Parameter'
+  }
+}
+
+function humidityBg(h: number): string {
+  if (h < 70) return 'transparent'
+  return `oklch(${0.99 - (h - 70) * 0.001} 0.01 220)`
+}
+
+function round1(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(1)
+}
+
+function observationTimeKey(value: string): string {
+  return new Date(value).toISOString()
+}
+
+function observationCell(
+  key: 'temp' | 'hum' | 'wind' | 'pressure' | 'precip',
+  observation: JSStationObservation | undefined
+): Omit<ObservationGridCell, 'sideBorder'> {
+  if (!observation) {
     return {
-      station: p.stationName,
-      time: new Date(p.time).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }),
-      temp: fmtNum(p.temperature),
-      tempColor: p.temperature != null ? tempColor(p.temperature) : 'oklch(0.4 0.012 255)',
-      humidity: fmtNum(p.humidity),
-      pressure: fmtNum(p.pressure),
-      windKmh: fmtNum(p.windSpeedKMH),
-      deg: p.windDirectionID != null ? p.windDirectionID * 22.5 + 180 : 180,
-      precip: fmtNum(p.precipitation),
-      solar: fmtNum(p.solarRadiation),
-      rowBg: i % 2 === 0 ? '#fff' : 'oklch(0.984 0.003 255)'
+      isWind: false,
+      isText: true,
+      main: '–',
+      deg: 0,
+      bg: 'transparent',
+      color: 'oklch(0.78 0.01 255)',
+      weight: 400
     }
-  })
+  }
+
+  if (key === 'temp') {
+    return observation.temperature == null
+      ? observationCell(key, undefined)
+      : { isWind: false, isText: true, main: `${round1(observation.temperature)}°`, deg: 0, bg: tempBg(observation.temperature), color: tempColor(observation.temperature), weight: 600 }
+  }
+  if (key === 'hum') {
+    return observation.humidity == null
+      ? observationCell(key, undefined)
+      : { isWind: false, isText: true, main: `${round1(observation.humidity)}%`, deg: 0, bg: humidityBg(observation.humidity), color: 'oklch(0.42 0.012 255)', weight: 500 }
+  }
+  if (key === 'wind') {
+    return observation.windSpeedKMH == null
+      ? observationCell(key, undefined)
+      : { isWind: true, isText: false, main: round1(observation.windSpeedKMH), deg: observation.windDirectionID != null ? observation.windDirectionID * 22.5 + 180 : 180, bg: windBg(observation.windSpeedKMH), color: 'oklch(0.42 0.012 255)', weight: 500 }
+  }
+  if (key === 'pressure') {
+    return observation.pressure == null
+      ? observationCell(key, undefined)
+      : { isWind: false, isText: true, main: observation.pressure.toFixed(1), deg: 0, bg: 'transparent', color: 'oklch(0.42 0.012 255)', weight: 500 }
+  }
+
+  return observation.precipitation == null
+    ? observationCell(key, undefined)
+    : { isWind: false, isText: true, main: observation.precipitation === 0 ? '0' : observation.precipitation.toFixed(1), deg: 0, bg: precipBg(observation.precipitation * 10), color: precipColor(observation.precipitation * 10), weight: observation.precipitation > 0 ? 600 : 400 }
 }
 
-export function buildObservationCards(features: JSStationObservationFeature[], t: { temp: string, humidity: string, wind: string, pressure: string, precip: string, solar: string }): { station: string, time: string, metrics: { k: string, v: string, c: string }[] }[] {
-  return features.map((f) => {
-    const p = f.properties
-    return {
-      station: p.stationName,
-      time: new Date(p.time).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }),
-      metrics: [
-        { k: `${t.temp} °C`, v: p.temperature != null ? `${p.temperature}°` : '—', c: p.temperature != null ? tempColor(p.temperature) : 'oklch(0.4 0.012 255)' },
-        { k: `${t.humidity} %`, v: fmtNum(p.humidity, '%'), c: 'oklch(0.4 0.012 255)' },
-        { k: t.pressure, v: fmtNum(p.pressure, ' hPa'), c: 'oklch(0.4 0.012 255)' },
-        { k: t.wind, v: `${p.windDirectionDescription ?? '—'} ${fmtNum(p.windSpeedKMH, ' km/h')}`, c: 'oklch(0.4 0.012 255)' },
-        { k: t.precip, v: fmtNum(p.precipitation, ' mm'), c: 'oklch(0.4 0.012 255)' },
-        { k: t.solar, v: fmtNum(p.solarRadiation, ' W/m²'), c: 'oklch(0.4 0.012 255)' }
-      ]
-    }
+export function buildObservationGrid(
+  stations: JSStation[],
+  observations: JSStationObservation[],
+  lat: number,
+  lon: number,
+  lang: Lang,
+  t: { temp: string, humidity: string, wind: string, pressure: string, precip: string },
+  primaryColor: string,
+  softColor: string
+): ObservationGrid {
+  const selectedStations = nearestStationsWithObservations(stations, observations, lat, lon, 5)
+  if (selectedStations.length === 0) return emptyObservationGrid(lang)
+
+  const selectedIds = new Set(selectedStations.map(s => s.id))
+  const scopedObservations = observations.filter(o => selectedIds.has(o.stationID))
+  const timeKeys = [...new Set(scopedObservations.map(o => observationTimeKey(o.time)))]
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+    .slice(0, 7)
+    .reverse()
+
+  if (timeKeys.length === 0) return emptyObservationGrid(lang)
+
+  const lastIdx = timeKeys.length - 1
+  const timeCols = timeKeys.map((tm, i) => ({
+    label: hourLabel(tm),
+    bg: i === lastIdx ? softColor : 'oklch(0.975 0.004 255)',
+    weight: i === lastIdx ? 700 : 500,
+    color: i === lastIdx ? primaryColor : 'oklch(0.5 0.01 255)'
+  }))
+
+  const metricRowDefs: { key: 'temp' | 'hum' | 'wind' | 'pressure' | 'precip', label: string, unit: string }[] = [
+    { key: 'temp', label: t.temp, unit: '°C' },
+    { key: 'hum', label: t.humidity, unit: '%' },
+    { key: 'wind', label: t.wind, unit: 'km/h' },
+    { key: 'pressure', label: t.pressure, unit: 'hPa' },
+    { key: 'precip', label: t.precip, unit: 'mm' }
+  ]
+
+  const observationsByStationTime = new Map<string, JSStationObservation>()
+  for (const observation of scopedObservations) {
+    const key = `${observation.stationID}:${observationTimeKey(observation.time)}`
+    observationsByStationTime.set(key, observation)
+  }
+
+  const rows: ObservationGridRow[] = []
+  const nMetrics = metricRowDefs.length
+  selectedStations.forEach((station, si) => {
+    const stationBg = si % 2 === 0 ? 'oklch(0.972 0.006 255)' : 'oklch(0.962 0.008 255)'
+    const labelBg = si % 2 === 0 ? '#fff' : 'oklch(0.986 0.003 255)'
+    metricRowDefs.forEach((metric, mi) => {
+      const cells = timeKeys.map((timeKey, ci) => {
+        const latest = ci === lastIdx
+        const base = observationCell(metric.key, observationsByStationTime.get(`${station.id}:${timeKey}`))
+        return {
+          ...base,
+          bg: latest && base.bg === 'transparent' ? softColor : base.bg,
+          sideBorder: latest ? `2px solid ${primaryColor}` : '1px solid oklch(0.95 0.005 255)'
+        }
+      })
+
+      rows.push({
+        first: mi === 0,
+        station: station.name,
+        stationRowspan: nMetrics,
+        stationBg,
+        labelBg,
+        label: metric.label,
+        unit: metric.unit,
+        cells,
+        topBorder: mi === 0 && si > 0 ? '2px solid oklch(0.84 0.012 255)' : '1px solid oklch(0.95 0.005 255)'
+      })
+    })
   })
+
+  return {
+    rows,
+    timeCols,
+    summary: lang === 'pt'
+      ? `${selectedStations.length} estações · ${nMetrics} parâmetros · de hora a hora · ${timeCols[0].label}–${timeCols[lastIdx].label}`
+      : `${selectedStations.length} stations · ${nMetrics} parameters · hourly · ${timeCols[0].label}–${timeCols[lastIdx].label}`,
+    stationLabel: lang === 'pt' ? 'Estação' : 'Station',
+    paramLabel: lang === 'pt' ? 'Parâmetro' : 'Parameter'
+  }
 }
