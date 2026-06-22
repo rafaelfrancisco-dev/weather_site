@@ -39,15 +39,20 @@ export default defineNuxtConfig({
       cache: { driver: 'fs', base: './.data/cache' }
     }
   },
-  // CDN-cache these alongside the Redis TTLs in server/utils/ipma.ts so repeat
+  // ISR-cache these alongside the Redis TTLs in server/utils/ipma.ts so repeat
   // requests are served by Vercel's edge instead of invoking the function.
+  // `isr: <seconds>` (not the legacy `cache: { swr, maxAge }` shorthand) is
+  // what Nitro's vercel preset actually maps to a real ISR expiration —
+  // the legacy shorthand silently drops maxAge and never time-based-revalidates.
   routeRules: {
-    '/api/locations': { cache: { swr: true, maxAge: 86400 } },
-    '/api/districts': { cache: { swr: true, maxAge: 86400 } },
-    '/api/weather-types': { cache: { swr: true, maxAge: 86400 } },
-    '/api/warnings': { cache: { swr: true, maxAge: 600 } },
-    '/api/observations': { cache: { swr: true, maxAge: 3600 } },
-    '/api/forecast/**': { cache: { swr: true, maxAge: 3600 } }
+    '/': { isr: 86400 },
+    '/location/**': { isr: 600 },
+    '/api/locations': { isr: 86400 },
+    '/api/districts': { isr: 86400 },
+    '/api/weather-types': { isr: 86400 },
+    '/api/warnings': { isr: 600 },
+    '/api/observations': { isr: 3600 },
+    '/api/forecast/**': { isr: 3600 }
   },
   modules: ['@vercel/analytics', '@vercel/speed-insights']
 })
