@@ -466,6 +466,7 @@ export interface ObservationGrid {
   summary: string
   stationLabel: string
   paramLabel: string
+  timeLabel: string
 }
 
 function emptyObservationGrid(lang: Lang): ObservationGrid {
@@ -474,7 +475,8 @@ function emptyObservationGrid(lang: Lang): ObservationGrid {
     timeCols: [],
     summary: lang === 'pt' ? 'Sem observações disponíveis' : 'No observations available',
     stationLabel: lang === 'pt' ? 'Estação' : 'Station',
-    paramLabel: lang === 'pt' ? 'Parâmetro' : 'Parameter'
+    paramLabel: lang === 'pt' ? 'Parâmetro' : 'Parameter',
+    timeLabel: lang === 'pt' ? 'Hora' : 'Time'
   }
 }
 
@@ -489,6 +491,10 @@ function round1(v: number): string {
 
 function observationTimeKey(value: string): string {
   return new Date(value).toISOString()
+}
+
+function observationTimeLabel(value: string): string {
+  return `${hourLabel(value)}:00`
 }
 
 function observationCell(
@@ -539,7 +545,7 @@ export function buildObservationGrid(
   lat: number,
   lon: number,
   lang: Lang,
-  t: { temp: string, humidity: string, wind: string, pressure: string, precip: string },
+  t: { time: string, temp: string, humidity: string, wind: string, pressure: string, precip: string },
   primaryColor: string,
   softColor: string
 ): ObservationGrid {
@@ -557,7 +563,7 @@ export function buildObservationGrid(
 
   const lastIdx = timeKeys.length - 1
   const timeCols = timeKeys.map((tm, i) => ({
-    label: hourLabel(tm),
+    label: observationTimeLabel(tm),
     bg: i === lastIdx ? softColor : 'oklch(0.975 0.004 255)',
     weight: i === lastIdx ? 700 : 500,
     color: i === lastIdx ? primaryColor : 'oklch(0.5 0.01 255)'
@@ -614,6 +620,7 @@ export function buildObservationGrid(
       ? `${selectedStations.length} estações · ${nMetrics} parâmetros · de hora a hora · ${timeCols[0].label}–${timeCols[lastIdx].label}`
       : `${selectedStations.length} stations · ${nMetrics} parameters · hourly · ${timeCols[0].label}–${timeCols[lastIdx].label}`,
     stationLabel: lang === 'pt' ? 'Estação' : 'Station',
-    paramLabel: lang === 'pt' ? 'Parâmetro' : 'Parameter'
+    paramLabel: lang === 'pt' ? 'Parâmetro' : 'Parameter',
+    timeLabel: t.time
   }
 }
