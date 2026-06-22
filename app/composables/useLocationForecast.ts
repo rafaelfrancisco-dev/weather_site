@@ -16,22 +16,85 @@ interface ForecastResult {
   periods: JSHourlyForecastPeriod[]
 }
 
+interface ForecastPayload {
+  locationId: number | null
+  forecast: ForecastResult | null
+}
+
 export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: Ref<Record<string, string>>) {
   const { locations, districtMap, warningsByArea, stations, observations, labelFor } = useLocationsData()
   const settings = useSettings()
   const requestFetch = useRequestFetch()
+  const forecastCache = useState<Record<string, ForecastResult>>('ipma-forecast-client-cache', () => ({}))
 
   const selectedLocation = computed(() => locations.value.find(l => l.id === id.value) ?? null)
+  const selectedLocationId = computed(() => selectedLocation.value?.id ?? null)
+  const forecastKey = computed(() => `ipma-forecast-${selectedLocationId.value ?? 'none'}`)
 
-  const { data: forecast, pending: forecastLoading, error: forecastErrorRaw } = useAsyncData<ForecastResult | null>(
-    () => `ipma-forecast-${selectedLocation.value?.id ?? 'none'}`,
-    () => selectedLocation.value
-      ? requestFetch<ForecastResult>(`/api/forecast/${selectedLocation.value.id}`)
-      : Promise.resolve(null)
-  )
+  const forecastPayload = shallowRef<ForecastPayload>({ locationId: null, forecast: null })
+  const forecastLoading = ref(false)
+  const forecastErrorRaw = shallowRef<unknown>(null)
+
+  if (import.meta.client) {
+    let requestId = 0
+    let controller: AbortController | null = null
+
+    watch(selectedLocationId, async (locationId) => {
+      requestId += 1
+      const currentRequestId = requestId
+      controller?.abort()
+      controller = null
+      forecastErrorRaw.value = null
+
+      if (locationId == null) {
+        forecastPayload.value = { locationId: null, forecast: null }
+        forecastLoading.value = false
+        return
+      }
+
+      const key = forecastKey.value
+      const cachedForecast = forecastCache.value[key]
+      forecastPayload.value = { locationId, forecast: cachedForecast ?? null }
+
+      if (cachedForecast) {
+        forecastLoading.value = false
+        return
+      }
+
+      controller = new AbortController()
+      forecastLoading.value = true
+
+      try {
+        const forecast = await requestFetch<ForecastResult>(`/api/forecast/${locationId}`, { signal: controller.signal })
+        if (currentRequestId !== requestId || selectedLocationId.value !== locationId) return
+        forecastCache.value[key] = forecast
+        forecastPayload.value = { locationId, forecast }
+      } catch (error) {
+        if ((error as { name?: string }).name === 'AbortError') return
+        if (currentRequestId === requestId && selectedLocationId.value === locationId) {
+          forecastErrorRaw.value = error
+        }
+      } finally {
+        if (currentRequestId === requestId) {
+          forecastLoading.value = false
+        }
+      }
+    }, { immediate: true, flush: 'sync' })
+
+    onBeforeUnmount(() => {
+      controller?.abort()
+    })
+  }
+
+  const forecast = computed(() => {
+    if (forecastPayload.value.locationId !== selectedLocationId.value) {
+      return null
+    }
+    return forecastPayload.value.forecast
+  })
 
   const forecastError = computed(() => forecastErrorRaw.value
-    ? (forecastErrorRaw.value.message ?? String(forecastErrorRaw.value))
+    ? ((forecastErrorRaw.value as { message?: string }).message ?? String(forecastErrorRaw.value))
     : null
   )
 
