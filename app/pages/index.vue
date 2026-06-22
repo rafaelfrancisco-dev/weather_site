@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { locationHref } from '~/utils/slug'
+import { locationHref } from '#shared/slug'
 
 const { locations } = useLocationsData()
 const target = locations.value.find(l => l.name === 'Lisboa') ?? locations.value[0]

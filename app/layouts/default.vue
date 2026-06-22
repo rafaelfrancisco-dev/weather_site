@@ -2,7 +2,7 @@
 import { strings } from '~/utils/i18n'
 import { accentColors } from '~/utils/colors'
 import { buildLocationTree } from '~/utils/transform'
-import { parseLocationId } from '~/utils/slug'
+import { parseLocationId } from '#shared/slug'
 
 const route = useRoute()
 const query = ref('')

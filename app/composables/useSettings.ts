@@ -12,25 +12,13 @@ export interface Settings {
 
 const STORAGE_KEY = 'metpt-settings'
 
-const state = ref<Settings>({ accent: 'Institutional blue', density: 'Comfortable', hourlyBars: false, lang: 'en' })
-let loaded = false
-
-function load() {
-  if (loaded || !import.meta.client) return
-  loaded = true
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (raw) {
-    try {
-      Object.assign(state.value, JSON.parse(raw))
-    } catch {
-      // ignore malformed stored settings
-    }
-  }
-  watch(state, () => localStorage.setItem(STORAGE_KEY, JSON.stringify(state.value)), { deep: true })
-}
+const state = useLocalStorage<Settings>(
+  STORAGE_KEY,
+  { accent: 'Institutional blue', density: 'Comfortable', hourlyBars: false, lang: 'en' },
+  { mergeDefaults: true }
+)
 
 export function useSettings() {
-  load()
   return state
 }
 

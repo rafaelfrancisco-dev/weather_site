@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TreeGroup } from '~/utils/transform'
-import { locationHref } from '~/utils/slug'
+import { locationHref } from '#shared/slug'
 
 const props = defineProps<{
   tree: TreeGroup[]

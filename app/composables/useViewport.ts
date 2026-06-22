@@ -1,16 +1,6 @@
-const vw = ref(1180)
-const mobile = computed(() => vw.value <= 700)
-let listening = false
-
-function onResize() {
-  vw.value = window.innerWidth
-}
+const { width } = useWindowSize({ initialWidth: 1180 })
+const mobile = computed(() => width.value <= 700)
 
 export function useViewport() {
-  if (import.meta.client && !listening) {
-    listening = true
-    onResize()
-    window.addEventListener('resize', onResize)
-  }
   return { mobile }
 }

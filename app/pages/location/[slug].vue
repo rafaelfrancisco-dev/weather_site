@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { strings } from '~/utils/i18n'
 import { accentColors } from '~/utils/colors'
-import { parseLocationId } from '~/utils/slug'
+import { parseLocationId } from '#shared/slug'
 
 const route = useRoute()
 const tab = ref<'forecast' | 'obs'>('forecast')
@@ -30,9 +30,16 @@ const tabs = computed(() => [
   { key: 'obs' as const, label: t.value.obs }
 ])
 
-watch(locationMeta, (meta) => {
-  useHead({ title: meta ? `${meta.name} — MET·PT` : 'MET·PT' })
-}, { immediate: true })
+useSeoMeta({
+  title: computed(() => locationMeta.value?.name ?? 'MET·PT'),
+  description: computed(() => locationMeta.value
+    ? `${locationMeta.value.name} weather forecast, observations, and warnings from IPMA.`
+    : 'Portugal weather forecasts, observations, and warnings from IPMA.'),
+  ogTitle: computed(() => locationMeta.value ? `${locationMeta.value.name} - MET·PT` : 'MET·PT'),
+  ogDescription: computed(() => locationMeta.value
+    ? `${locationMeta.value.name} weather forecast, observations, and warnings from IPMA.`
+    : 'Portugal weather forecasts, observations, and warnings from IPMA.')
+})
 </script>
 
 <template>

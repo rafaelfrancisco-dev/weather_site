@@ -21,14 +21,36 @@ export default defineNuxtConfig({
   experimental: {
     viewTransition: true
   },
-  app: {
-    head: {
-      link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
-      ]
-    }
+  site: {
+    url: process.env.NUXT_SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined),
+    name: 'MET·PT',
+    description: 'Portugal weather forecasts, observations, and warnings from IPMA.',
+    defaultLocale: 'en',
+    indexable: process.env.VERCEL_ENV === 'production' && Boolean(process.env.NUXT_SITE_URL)
+  },
+  googleFonts: {
+    families: {
+      'IBM Plex Sans': [400, 500, 600, 700],
+      'IBM Plex Mono': [400, 500, 600]
+    },
+    display: 'swap',
+    preconnect: true,
+    download: false
+  },
+  robots: {
+    mergeWithRobotsTxtPath: false
+  },
+  ogImage: {
+    enabled: false
+  },
+  schemaOrg: {
+    enabled: false
+  },
+  sitemap: {
+    sources: ['/api/__sitemap__/urls'],
+    cacheMaxAgeSeconds: 3600,
+    discoverImages: false,
+    discoverVideos: false
   },
   nitro: {
     serverAssets: [{ baseName: 'ipma', dir: ipmaWasmDir }],
@@ -54,5 +76,5 @@ export default defineNuxtConfig({
     '/api/observations': { isr: 3600 },
     '/api/forecast/**': { isr: 3600 }
   },
-  modules: ['@vercel/analytics', '@vercel/speed-insights']
+  modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vercel/analytics', '@vercel/speed-insights']
 })
