@@ -67,6 +67,6 @@ useSeoMeta({
     </div>
 
     <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :mobile="mobile" :t="t" />
-    <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" />
+    <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" :mobile="mobile" :primary="c.primary" :soft="c.soft" />
   </template>
 </template>

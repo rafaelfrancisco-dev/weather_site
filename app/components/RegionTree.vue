@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TreeGroup } from '~/utils/transform'
 import { locationHref } from '#shared/slug'
+import { usePrefetchForecast } from '~/composables/useLocationForecast'
 
 const props = defineProps<{
   tree: TreeGroup[]
@@ -17,6 +18,8 @@ const emit = defineEmits<{
   'update:query': [string]
   closeNav: []
 }>()
+
+const { prefetch } = usePrefetchForecast()
 </script>
 
 <template>
@@ -71,16 +74,17 @@ const emit = defineEmits<{
           v-for="loc in region.locs"
           :key="loc.id"
           :to="locationHref(loc.id, loc.name)"
+          class="loc-link"
+          :class="{ 'loc-link--selected': loc.selected }"
           :style="{
-            width: '100%', display: 'flex', alignItems: 'center', gap: '8px', border: 'none',
-            borderLeft: `3px solid ${loc.selected ? props.primary : 'transparent'}`,
-            background: loc.selected ? props.soft : 'transparent',
-            cursor: 'pointer', padding: props.mobile ? '12px 16px 12px 28px' : '7px 16px 7px 28px',
-            fontFamily: 'inherit', fontSize: '12.5px', fontWeight: loc.selected ? 600 : 450,
-            color: loc.selected ? props.primary : 'oklch(0.38 0.012 255)', textAlign: 'left',
-            textDecoration: 'none', boxSizing: 'border-box'
+            '--loc-accent': props.primary,
+            '--loc-soft': props.soft,
+            padding: props.mobile ? '12px 16px 12px 28px' : '7px 16px 7px 28px',
+            fontWeight: loc.selected ? 600 : 450
           }"
           @click="emit('closeNav')"
+          @mouseenter="prefetch(loc.id)"
+          @touchstart="prefetch(loc.id)"
         >
           <span style="flex:1;">{{ loc.name }}</span>
           <span v-if="loc.warn" :style="{ width: '8px', height: '8px', borderRadius: '50%', background: loc.warnColor, flex: 'none' }"></span>
@@ -91,3 +95,32 @@ const emit = defineEmits<{
     <div style="padding:14px 16px; margin-top:6px; border-top:1px solid oklch(0.93 0.006 255); font-size:10.5px; line-height:1.6; color:oklch(0.6 0.01 255);">{{ props.t.disclaimer }}</div>
   </nav>
 </template>
+
+<style scoped>
+.loc-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-left: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: oklch(0.38 0.012 255);
+  text-align: left;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition: background 0.12s ease;
+}
+.loc-link--selected {
+  border-left-color: var(--loc-accent);
+  background: var(--loc-soft);
+  color: var(--loc-accent);
+}
+.loc-link:hover:not(.loc-link--selected),
+.loc-link:active:not(.loc-link--selected) {
+  background: oklch(0.965 0.005 255);
+}
+</style>

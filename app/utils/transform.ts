@@ -460,8 +460,15 @@ export interface ObservationGridRow {
   topBorder: string
 }
 
+export interface ObservationStationCard {
+  name: string
+  latestLabel: string
+  rows: { label: string, unit: string, cells: ObservationGridCell[] }[]
+}
+
 export interface ObservationGrid {
   rows: ObservationGridRow[]
+  stationCards: ObservationStationCard[]
   timeCols: { label: string, bg: string, weight: number, color: string }[]
   summary: string
   stationLabel: string
@@ -472,6 +479,7 @@ export interface ObservationGrid {
 function emptyObservationGrid(lang: Lang): ObservationGrid {
   return {
     rows: [],
+    stationCards: [],
     timeCols: [],
     summary: lang === 'pt' ? 'Sem observações disponíveis' : 'No observations available',
     stationLabel: lang === 'pt' ? 'Estação' : 'Station',
@@ -584,10 +592,12 @@ export function buildObservationGrid(
   }
 
   const rows: ObservationGridRow[] = []
+  const stationCards: ObservationStationCard[] = []
   const nMetrics = metricRowDefs.length
   selectedStations.forEach((station, si) => {
     const stationBg = si % 2 === 0 ? 'oklch(0.972 0.006 255)' : 'oklch(0.962 0.008 255)'
     const labelBg = si % 2 === 0 ? '#fff' : 'oklch(0.986 0.003 255)'
+    const cardRows: { label: string, unit: string, cells: ObservationGridCell[] }[] = []
     metricRowDefs.forEach((metric, mi) => {
       const cells = timeKeys.map((timeKey, ci) => {
         const latest = ci === lastIdx
@@ -610,11 +620,21 @@ export function buildObservationGrid(
         cells,
         topBorder: mi === 0 && si > 0 ? '2px solid oklch(0.84 0.012 255)' : '1px solid oklch(0.95 0.005 255)'
       })
+
+      cardRows.push({ label: metric.label, unit: metric.unit, cells })
+    })
+
+    const latestTemp = observationsByStationTime.get(`${station.id}:${timeKeys[lastIdx]}`)?.temperature
+    stationCards.push({
+      name: station.name,
+      latestLabel: latestTemp != null ? `${round1(latestTemp)}°` : '—',
+      rows: cardRows
     })
   })
 
   return {
     rows,
+    stationCards,
     timeCols,
     summary: lang === 'pt'
       ? `${selectedStations.length} estações · ${nMetrics} parâmetros · de hora a hora · ${timeCols[0].label}–${timeCols[lastIdx].label}`

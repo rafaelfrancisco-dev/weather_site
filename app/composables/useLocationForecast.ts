@@ -141,3 +141,26 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     c
   }
 }
+
+// Lets the sidebar start fetching a location's forecast on hover/touch, ahead
+// of the click that actually navigates there — so by the time the watch in
+// useLocationForecast fires, the result is often already cached or in flight.
+// Best-effort only: errors are swallowed since the real fetch on navigation
+// will retry and surface them properly.
+export function usePrefetchForecast() {
+  const requestFetch = useRequestFetch()
+  const forecastCache = useState<Record<string, ForecastResult>>('ipma-forecast-client-cache', () => ({}))
+  const inflight = useState<Record<string, true>>('ipma-forecast-inflight', () => ({}))
+
+  function prefetch(locationId: number) {
+    const key = `ipma-forecast-${locationId}`
+    if (forecastCache.value[key] || inflight.value[key]) return
+    inflight.value[key] = true
+    requestFetch<ForecastResult>(`/api/forecast/${locationId}`)
+      .then((forecast) => { forecastCache.value[key] = forecast })
+      .catch(() => {})
+      .finally(() => { delete inflight.value[key] })
+  }
+
+  return { prefetch }
+}
