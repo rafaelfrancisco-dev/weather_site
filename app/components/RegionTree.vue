@@ -78,7 +78,8 @@ const emit = defineEmits<{
             cursor: 'pointer', padding: props.mobile ? '12px 16px 12px 28px' : '7px 16px 7px 28px',
             fontFamily: 'inherit', fontSize: '12.5px', fontWeight: loc.selected ? 600 : 450,
             color: loc.selected ? props.primary : 'oklch(0.38 0.012 255)', textAlign: 'left',
-            textDecoration: 'none', boxSizing: 'border-box'
+            textDecoration: 'none', boxSizing: 'border-box',
+            viewTransitionName: loc.selected ? 'sidebar-active' : undefined
           }"
           @click="emit('closeNav')"
         >

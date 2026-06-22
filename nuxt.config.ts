@@ -18,6 +18,9 @@ copyFileSync(
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  experimental: {
+    viewTransition: true
+  },
   app: {
     head: {
       link: [
