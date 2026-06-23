@@ -28,7 +28,7 @@ const dens = computed(() => densityStyles(settings.value.density))
           <thead>
             <tr>
               <th rowspan="2" scope="col" style="position:sticky; left:0; z-index:7; width:118px; min-width:118px; background:oklch(0.945 0.008 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:1px solid oklch(0.88 0.008 255); padding:7px 10px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.45 0.012 255);">{{ props.observationGrid.stationLabel }}</th>
-              <th rowspan="2" scope="col" style="position:sticky; left:118px; z-index:7; width:84px; min-width:84px; background:oklch(0.96 0.006 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:2px solid oklch(0.84 0.012 255); padding:7px 9px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.5 0.012 255);">{{ props.observationGrid.paramLabel }}</th>
+              <th rowspan="2" scope="col" style="position:sticky; left:118px; z-index:7; width:108px; min-width:108px; background:oklch(0.96 0.006 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:2px solid oklch(0.84 0.012 255); padding:7px 9px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.5 0.012 255); overflow:hidden; text-overflow:ellipsis;">{{ props.observationGrid.paramLabel }}</th>
               <th
                 v-if="props.observationGrid.timeCols.length > 0"
                 :colspan="props.observationGrid.timeCols.length"
@@ -53,7 +53,7 @@ const dens = computed(() => densityStyles(settings.value.density))
                 scope="rowgroup"
                 :style="{ position: 'sticky', left: '0', zIndex: 6, width: '118px', minWidth: '118px', background: r.stationBg, borderTop: r.topBorder, borderRight: '1px solid oklch(0.88 0.008 255)', padding: dens.pad, textAlign: 'left', verticalAlign: 'top', fontSize: dens.fz, fontWeight: 700, color: 'oklch(0.24 0.016 255)', lineHeight: 1.25 }"
               >{{ r.station }}</th>
-              <th scope="row" :style="{ position: 'sticky', left: '118px', zIndex: 5, width: '84px', minWidth: '84px', background: r.labelBg, borderTop: r.topBorder, borderRight: '2px solid oklch(0.84 0.012 255)', borderBottom: '1px solid oklch(0.95 0.005 255)', padding: dens.pad, textAlign: 'left', fontSize: dens.fz, fontWeight: 500, color: 'oklch(0.42 0.012 255)', whiteSpace: 'nowrap' }">
+              <th scope="row" :style="{ position: 'sticky', left: '118px', zIndex: 5, width: '108px', minWidth: '108px', background: r.labelBg, borderTop: r.topBorder, borderRight: '2px solid oklch(0.84 0.012 255)', borderBottom: '1px solid oklch(0.95 0.005 255)', padding: dens.pad, textAlign: 'left', fontSize: dens.fz, fontWeight: 500, color: 'oklch(0.42 0.012 255)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }">
                 {{ r.label }}
                 <span style="color:oklch(0.66 0.01 255); font-size:9.5px; font-weight:400;">{{ r.unit }}</span>
               </th>
