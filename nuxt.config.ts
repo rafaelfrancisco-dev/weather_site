@@ -76,7 +76,6 @@ export default defineNuxtConfig({
   // what Nitro's vercel preset actually maps to a real ISR expiration —
   // the legacy shorthand silently drops maxAge and never time-based-revalidates.
   routeRules: {
-    '/': { isr: 86400 },
     '/location/**': { isr: 600 },
     '/api/locations': { isr: 86400 },
     '/api/districts': { isr: 86400 },

@@ -82,7 +82,7 @@ const skeletonHourRows = computed(() => [
               <td
                 v-for="(cell, ci) in row.cells"
                 :key="ci"
-                :style="{ borderBottom: '1px solid oklch(0.94 0.006 255)', borderLeft: cell.sep, background: cell.isCurrent ? 'oklch(0.93 0.009 255)' : cell.bg, padding: dens.cellPad, textAlign: 'center', verticalAlign: 'middle' }"
+                :style="{ borderBottom: '1px solid oklch(0.94 0.006 255)', borderLeft: cell.sep, background: cell.isCurrent ? `linear-gradient(rgba(78, 92, 112, 0.08), rgba(78, 92, 112, 0.08)), ${cell.bg}` : cell.bg, padding: dens.cellPad, textAlign: 'center', verticalAlign: 'middle' }"
               >
                 <img v-if="cell.isIcon && cell.icon" :src="cell.icon" :title="cell.title" :alt="cell.title" style="width:26px; height:26px; display:block; margin:0 auto;" />
                 <div v-else-if="cell.isWind" style="display:flex; flex-direction:column; align-items:center; gap:1px;">

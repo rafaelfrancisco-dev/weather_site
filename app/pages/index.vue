@@ -2,15 +2,24 @@
 import { locationHref } from '#shared/slug'
 
 const settings = useSettings()
-const { locations } = useLocationsData()
-const target = locations.value.find(l => l.id === settings.value.lastLocationId)
+const { locations, bootstrapped } = useLocationsData()
+const readyToRedirect = ref(false)
+const target = computed(() => locations.value.find(l => l.id === settings.value.lastLocationId)
   ?? locations.value.find(l => l.name === 'Lisboa')
-  ?? locations.value[0]
-if (target) {
-  await navigateTo(locationHref(target.id, target.name), { replace: true })
+  ?? locations.value[0])
+
+onMounted(() => {
+  readyToRedirect.value = true
+})
+
+if (import.meta.client) {
+  watchEffect(async () => {
+    if (!readyToRedirect.value || !bootstrapped.value || !target.value) return
+    await navigateTo(locationHref(target.value.id, target.value.name), { replace: true })
+  })
 }
 </script>
 
 <template>
-  <div v-if="!target" style="color:oklch(0.4 0.012 255); font-size:14px;">No locations found.</div>
+  <div v-if="bootstrapped && !target" style="color:oklch(0.4 0.012 255); font-size:14px;">No locations found.</div>
 </template>
