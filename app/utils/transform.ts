@@ -287,13 +287,14 @@ export interface HourCell {
   deg: number
   icon: string | null
   title: string
+  isCurrent: boolean
 }
 
 export interface HourlyGrid {
   dayHeaders: { span: number, label: string }[]
-  timeCols: { label: string, sep: string }[]
+  timeCols: { label: string, sep: string, isCurrent: boolean }[]
   hourRows: { label: string, unit: string, cells: HourCell[] }[]
-  hourDays: { label: string, cells: { time: string, icon: string | null, title: string, temp: number, tempColor: string, pp: number, ppColor: string, deg: number, ws: number | null }[] }[]
+  hourDays: { label: string, cells: { time: string, icon: string | null, title: string, temp: number, tempColor: string, pp: number, ppColor: string, deg: number, ws: number | null, isCurrent: boolean }[] }[]
 }
 
 export function buildHourlyGrid(
@@ -320,9 +321,18 @@ export function buildHourlyGrid(
     return { span: group.length, label: `${weekday(d, lang)} ${d.getDate()} ${monthShort(d, lang)}` }
   })
 
+  const nowMs = Date.now()
+  let activeColIndex = flat.length > 0 ? 0 : -1
+  let minDiff = Infinity
+  for (let i = 0; i < flat.length; i++) {
+    const diff = Math.abs(new Date(flat[i].forecastDate).getTime() - nowMs)
+    if (diff < minDiff) { minDiff = diff; activeColIndex = i }
+  }
+
   const timeCols = flat.map((p, i) => ({
     label: hourLabel(p.forecastDate),
-    sep: dayBoundaries.has(i) ? '2px solid oklch(0.85 0.01 255)' : '1px solid oklch(0.95 0.005 255)'
+    sep: dayBoundaries.has(i) ? '2px solid oklch(0.85 0.01 255)' : '1px solid oklch(0.95 0.005 255)',
+    isCurrent: i === activeColIndex
   }))
 
   const mkCells = (fn: (p: JSHourlyForecastPeriod, i: number) => Partial<HourCell>): HourCell[] => flat.map((p, i) => {
@@ -340,7 +350,8 @@ export function buildHourlyGrid(
       barColor: primaryColor,
       deg: 0,
       icon: null,
-      title: ''
+      title: '',
+      isCurrent: i === activeColIndex
     }
     return Object.assign(base, fn(p, i))
   })
@@ -389,11 +400,14 @@ export function buildHourlyGrid(
     }
   ]
 
+  let flatIdx = 0
   const hourDays = days.map((group) => {
     const d = new Date(group[0].forecastDate)
+    const startIdx = flatIdx
+    flatIdx += group.length
     return {
       label: `${weekday(d, lang)} ${d.getDate()} ${monthShort(d, lang)}`,
-      cells: group.map(p => ({
+      cells: group.map((p, ci) => ({
         time: `${hourLabel(p.forecastDate)}h`,
         icon: iconUrl(p.weatherTypeID, isDaytime(p.forecastDate)),
         title: labelFor(p.weatherTypeID, lang),
@@ -402,7 +416,8 @@ export function buildHourlyGrid(
         pp: p.precipitationProbability ?? 0,
         ppColor: precipColor(p.precipitationProbability ?? 0),
         deg: windArrowDeg(p.windDirection),
-        ws: p.windSpeed
+        ws: p.windSpeed,
+        isCurrent: startIdx + ci === activeColIndex
       }))
     }
   })

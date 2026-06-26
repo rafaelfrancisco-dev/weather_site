@@ -51,7 +51,7 @@ const skeletonHourRows = computed(() => [
               <th
                 v-for="(col, i) in props.hourlyGrid.timeCols"
                 :key="i"
-                :style="{ background: 'oklch(0.985 0.004 255)', borderBottom: '1px solid oklch(0.86 0.008 255)', borderLeft: col.sep, padding: '4px 0', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', fontWeight: 500, color: 'oklch(0.5 0.01 255)', width: '42px', textAlign: 'center' }"
+                :style="{ background: col.isCurrent ? 'oklch(0.88 0.012 255)' : 'oklch(0.985 0.004 255)', borderBottom: col.isCurrent ? '2px solid oklch(0.65 0.02 255)' : '1px solid oklch(0.86 0.008 255)', borderLeft: col.sep, padding: '4px 0', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', fontWeight: col.isCurrent ? 700 : 500, color: col.isCurrent ? 'oklch(0.28 0.02 255)' : 'oklch(0.5 0.01 255)', width: '42px', textAlign: 'center' }"
               >{{ col.label }}</th>
             </tr>
           </thead>
@@ -82,7 +82,7 @@ const skeletonHourRows = computed(() => [
               <td
                 v-for="(cell, ci) in row.cells"
                 :key="ci"
-                :style="{ borderBottom: '1px solid oklch(0.94 0.006 255)', borderLeft: cell.sep, background: cell.bg, padding: dens.cellPad, textAlign: 'center', verticalAlign: 'middle' }"
+                :style="{ borderBottom: '1px solid oklch(0.94 0.006 255)', borderLeft: cell.sep, background: cell.isCurrent ? 'oklch(0.93 0.009 255)' : cell.bg, padding: dens.cellPad, textAlign: 'center', verticalAlign: 'middle' }"
               >
                 <img v-if="cell.isIcon && cell.icon" :src="cell.icon" :title="cell.title" :alt="cell.title" style="width:26px; height:26px; display:block; margin:0 auto;" />
                 <div v-else-if="cell.isWind" style="display:flex; flex-direction:column; align-items:center; gap:1px;">
@@ -124,7 +124,7 @@ const skeletonHourRows = computed(() => [
         <div v-for="(hd, di) in props.hourlyGrid.hourDays" :key="di">
           <div style="font-size:12px; font-weight:600; color:oklch(0.45 0.012 255); margin-bottom:7px; font-family:'IBM Plex Mono',monospace;">{{ hd.label }}</div>
           <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch;">
-            <div v-for="(hc, ci) in hd.cells" :key="ci" style="flex:none; width:74px; border:1px solid oklch(0.9 0.006 255); border-radius:10px; background:#fff; padding:9px 6px; display:flex; flex-direction:column; align-items:center; gap:5px;">
+            <div v-for="(hc, ci) in hd.cells" :key="ci" :style="{ flex: 'none', width: '74px', border: hc.isCurrent ? '2px solid oklch(0.65 0.02 255)' : '1px solid oklch(0.9 0.006 255)', borderRadius: '10px', background: hc.isCurrent ? 'oklch(0.93 0.009 255)' : '#fff', padding: hc.isCurrent ? '8px 5px' : '9px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }">
               <span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:oklch(0.5 0.01 255);">{{ hc.time }}</span>
               <img v-if="hc.icon" :src="hc.icon" :alt="hc.title" :title="hc.title" style="width:30px; height:30px;" />
               <span :style="{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '17px', fontWeight: 600, color: hc.tempColor }">{{ hc.temp }}°</span>
