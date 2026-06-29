@@ -40,6 +40,7 @@ const c = computed(() => accentColors(settings.value.accent))
 const activeLayer = ref<MapLayer>('forecast')
 const selectedPick = ref<MapPick | null>(null)
 const focus = ref<MapFocus | null>(null)
+const districtMapExpanded = ref(false)
 
 const {
   locations,
@@ -185,7 +186,6 @@ const layerDefs = computed<LayerDef[]>(() => [
 ])
 
 const activeLayerDef = computed(() => layerDefs.value.find(def => def.id === activeLayer.value) ?? layerDefs.value[0])
-const otherLayers = computed(() => layerDefs.value.filter(def => def.id !== activeLayer.value))
 
 const latestObservation = computed(() => {
   const latest = observations.value.reduce<string | null>((max, obs) => {
@@ -212,9 +212,14 @@ const warningsSummary = computed<WarningSummary[]>(() =>
     .sort((a, b) => levelRank(b.level) - levelRank(a.level) || a.name.localeCompare(b.name))
 )
 
-const primaryHeight = computed(() => mobile.value ? 430 : 560)
-const miniHeight = computed(() => mobile.value ? 152 : 168)
+const primaryHeight = computed(() => mobile.value ? 430 : 640)
 const focusHeight = computed(() => mobile.value ? 440 : 560)
+const expandedFocusHeight = computed(() => mobile.value ? 620 : 760)
+const activeFocusHeight = computed(() => districtMapExpanded.value ? expandedFocusHeight.value : focusHeight.value)
+const districtMapToggleLabel = computed(() => {
+  if (districtMapExpanded.value) return lang.value === 'pt' ? 'Reduzir mapa' : 'Shrink map'
+  return lang.value === 'pt' ? 'Expandir mapa' : 'Expand map'
+})
 
 const focusedDistrictLabel = computed(() => focus.value?.district ?? groupLabel(focus.value?.group ?? 'mainland'))
 
@@ -339,6 +344,7 @@ function openDistrict(name: string, group?: MapGroup) {
   const district = geoDistrict?.name ?? name
   focus.value = { group: group ?? (geoDistrict?.group as MapGroup | undefined) ?? 'mainland', district }
   selectedPick.value = null
+  districtMapExpanded.value = false
   const nextPath = districtHref(name)
   if (route.path !== nextPath) router.push(nextPath)
 }
@@ -346,6 +352,7 @@ function openDistrict(name: string, group?: MapGroup) {
 function closeDistrict() {
   focus.value = null
   selectedPick.value = null
+  districtMapExpanded.value = false
   if (route.path !== '/maps') router.push('/maps')
 }
 
@@ -390,13 +397,18 @@ watch(routeDistrictSlug, (slug) => {
   if (!slug) {
     focus.value = null
     selectedPick.value = null
+    districtMapExpanded.value = false
     return
   }
   const geoDistrict = geoDistrictForSlug(slug)
   if (!geoDistrict) {
     focus.value = null
     selectedPick.value = null
+    districtMapExpanded.value = false
     return
+  }
+  if (focus.value?.district !== geoDistrict.name || focus.value?.group !== geoDistrict.group) {
+    districtMapExpanded.value = false
   }
   focus.value = { group: geoDistrict.group as MapGroup, district: geoDistrict.name }
   selectedPick.value = null
@@ -421,6 +433,12 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
         <strong>{{ latestObservation }}</strong>
       </div>
     </header>
+
+    <div class="maps-warning" role="status">
+      {{ lang === 'pt'
+        ? 'As funcionalidades do mapa ainda estão em construção e podem ter erros.'
+        : 'Map features are still under construction and might be bugged.' }}
+    </div>
 
     <nav class="layer-tabs" aria-label="Weather map layers">
       <button
@@ -476,66 +494,28 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
         </div>
       </article>
 
-      <aside class="maps-side">
-        <section class="other-layers">
-          <h2>{{ t.otherLayers }}</h2>
-          <div class="mini-grid">
-            <button
-              v-for="def in otherLayers"
-              :key="def.id"
-              class="mini-card"
-              type="button"
-              @click="setLayer(def.id)"
-            >
-              <div class="mini-card__head">
-                <span class="mini-card__label">
-                  <span :style="{ background: def.swatchColor }"></span>
-                  {{ def.label }}
-                </span>
-                <span class="mini-card__unit">{{ def.unit }}</span>
-              </div>
-              <div class="mini-card__body">
-                <PTMap
-                  :layer="def.id"
-                  variant="mini"
-                  :focus="null"
-                  :height="miniHeight"
-                  :lang="lang"
-                  :accent="c.primary"
-                  :forecast-data="forecastData"
-                  :observation-data="obsPoints"
-                  :warning-data="districtWarnings"
-                  :fire-data="FIRE"
-                  @pick="setLayer(def.id)"
-                />
-              </div>
-            </button>
-          </div>
-        </section>
-
-        <section class="warnings-panel">
-          <h2>{{ t.activeWarnings }}</h2>
-          <div v-if="warningsSummary.length" class="warnings-list">
-            <button
-              v-for="warning in warningsSummary.slice(0, 6)"
-              :key="warning.name"
-              class="warning-row"
-              type="button"
-              @click="openDistrict(warning.name, warning.group)"
-            >
-              <span class="warning-row__dot" :style="{ background: warning.color }"></span>
-              <span class="warning-row__area">
-                <strong>{{ warning.name }}</strong>
-              </span>
-              <small>{{ warning.type }}</small>
-              <span class="warning-row__arrow">›</span>
-            </button>
-          </div>
-          <p v-else class="empty-copy">
-            {{ t.noActiveWarnings }}
-          </p>
-        </section>
-      </aside>
+      <section class="warnings-panel warnings-panel--national">
+        <h2>{{ t.activeWarnings }}</h2>
+        <div v-if="warningsSummary.length" class="warnings-list warnings-list--national">
+          <button
+            v-for="warning in warningsSummary.slice(0, 6)"
+            :key="warning.name"
+            class="warning-row"
+            type="button"
+            @click="openDistrict(warning.name, warning.group)"
+          >
+            <span class="warning-row__dot" :style="{ background: warning.color }"></span>
+            <span class="warning-row__area">
+              <strong>{{ warning.name }}</strong>
+            </span>
+            <small>{{ warning.type }}</small>
+            <span class="warning-row__arrow">›</span>
+          </button>
+        </div>
+        <p v-else class="empty-copy">
+          {{ t.noActiveWarnings }}
+        </p>
+      </section>
     </section>
 
     <section v-else class="district-view">
@@ -552,14 +532,23 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
         <p>{{ focusedLocations.length }} {{ lang === 'pt' ? 'locais' : 'locations' }}</p>
       </header>
 
-      <div class="district-grid">
+      <div class="district-grid" :class="{ 'district-grid--expanded': districtMapExpanded }">
         <article class="district-map-panel">
-          <div class="map-frame map-frame--focus">
+          <div class="map-frame map-frame--focus" :class="{ 'map-frame--expanded': districtMapExpanded }">
+            <button
+              class="map-expand-button"
+              type="button"
+              :aria-pressed="districtMapExpanded"
+              :aria-label="districtMapToggleLabel"
+              @click="districtMapExpanded = !districtMapExpanded"
+            >
+              {{ districtMapToggleLabel }}
+            </button>
             <PTMap
               :layer="activeLayer"
               variant="full"
               :focus="focus"
-              :height="focusHeight"
+              :height="activeFocusHeight"
               :lang="lang"
               :accent="c.primary"
               :forecast-data="forecastData"
@@ -686,6 +675,17 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   font-weight: 600;
 }
 
+.maps-warning {
+  border: 1px solid oklch(0.86 0.09 84);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: oklch(0.98 0.035 86);
+  color: oklch(0.36 0.055 70);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 .layer-tabs {
   display: flex;
   gap: 2px;
@@ -724,7 +724,11 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   border-radius: 3px;
 }
 
-.atlas-grid,
+.atlas-grid {
+  display: grid;
+  gap: 18px;
+}
+
 .district-grid {
   display: grid;
   grid-template-columns: minmax(480px, 2fr) minmax(300px, 1fr);
@@ -737,6 +741,11 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   min-width: 0;
 }
 
+.district-grid--expanded .district-map-panel,
+.district-grid--expanded .location-panel {
+  grid-column: 1 / -1;
+}
+
 .panel-heading {
   display: flex;
   align-items: center;
@@ -747,7 +756,6 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
 }
 
 .panel-heading h2,
-.other-layers h2,
 .side-section__header h2 {
   margin: 0;
   color: oklch(0.30 0.012 255);
@@ -779,6 +787,33 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
 .map-frame--focus {
   min-height: 300px;
   align-items: center;
+}
+
+.map-frame--expanded {
+  min-height: 620px;
+}
+
+.map-expand-button {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  border: 1px solid oklch(0.86 0.012 245);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: oklch(0.34 0.018 250);
+  box-shadow: 0 8px 24px rgba(35, 44, 60, 0.08);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.map-expand-button:hover {
+  border-color: oklch(0.76 0.04 245);
+  color: oklch(0.26 0.03 250);
 }
 
 .map-loading {
@@ -827,15 +862,6 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   line-height: 1;
 }
 
-.maps-side {
-  display: grid;
-  gap: 16px;
-}
-
-.other-layers h2 {
-  margin-bottom: 9px;
-}
-
 .warnings-panel,
 .location-panel {
   border: 1px solid oklch(0.89 0.008 255);
@@ -853,6 +879,14 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.warnings-panel--national {
+  max-width: none;
+}
+
+.warnings-list--national {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .side-section__header {
@@ -874,65 +908,6 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   font-size: 11px;
   font-weight: 700;
   text-align: center;
-}
-
-.mini-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 11px;
-}
-
-.mini-card {
-  border: 1px solid oklch(0.90 0.006 255);
-  border-radius: 9px;
-  padding: 0;
-  background: #fff;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  overflow: hidden;
-  text-align: left;
-}
-
-.mini-card__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  border-bottom: 1px solid oklch(0.93 0.006 255);
-  padding: 7px 10px;
-}
-
-.mini-card__label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  color: oklch(0.3 0.012 255);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.mini-card__unit {
-  flex: none;
-  color: oklch(0.58 0.01 255);
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 9px;
-}
-
-.mini-card__body {
-  display: flex;
-  justify-content: center;
-  padding: 8px;
-  background: oklch(0.99 0.002 255);
-}
-
-.mini-card__label span {
-  flex: none;
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
 }
 
 .warnings-list,
@@ -1121,8 +1096,11 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   }
 
   .maps-updated,
-  .atlas-grid,
   .district-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .warnings-list--national {
     grid-template-columns: 1fr;
   }
 
@@ -1132,15 +1110,20 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
     min-height: 300px;
     padding-inline: 8px;
   }
+
+  .map-frame--expanded {
+    min-height: 620px;
+  }
+
+  .map-expand-button {
+    top: 8px;
+    right: 8px;
+  }
 }
 
 @media (max-width: 560px) {
   .maps-page {
     gap: 14px;
-  }
-
-  .mini-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

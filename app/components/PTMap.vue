@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PT_GEO } from '~/utils/portugal-geo-data'
-import { projPoint, iconSvg, isNowDaytime, dirDeg, FIRE, SEA_POINTS } from '~/utils/maps'
+import { projPoint, iconSvg, isNowDaytime, dirDeg, FIRE, SEA_POINTS, CAPITALS } from '~/utils/maps'
 import { tempFill, uvColor, waveFill, levelSoft, fireColor, tempColor } from '~/utils/colors'
 import type { WarningLevel } from '~/utils/colors'
 import type { FcPoint, MapFocus, MapGroup, MapLayer, MapPick, ObsPoint, WarnEntry } from '#shared/map-types'
@@ -33,12 +33,54 @@ const {
   choro?: Record<string, any>
 }>()
 
-const mapId = `pt-${Math.random().toString(36).slice(2, 7)}`
+const mapId = `pt-${useId().replace(/[^a-zA-Z0-9_-]/g, '-')}`
 
 const emit = defineEmits<{ pick: [pick: MapPick] }>()
 
-const hover = ref<string | null>(null)
 const GEO = PT_GEO.groups
+const capitalDistrictByName = new Map(CAPITALS.map(capital => [capital.name, capital.district]))
+const renderedSvgHeights = reactive<Partial<Record<MapGroup, number>>>({})
+const svgEls = new Map<MapGroup, SVGSVGElement>()
+const svgGroups = new WeakMap<Element, MapGroup>()
+let svgResizeObserver: ResizeObserver | null = null
+
+function updateRenderedSvgHeight(group: MapGroup, el: SVGSVGElement) {
+  renderedSvgHeights[group] = el.getBoundingClientRect().height || groupHeights.value[group]
+}
+
+function setSvgEl(group: MapGroup, el: SVGSVGElement | null) {
+  if (!import.meta.client) return
+  const previous = svgEls.get(group)
+  if (previous && previous !== el) svgResizeObserver?.unobserve(previous)
+  if (!el) {
+    svgEls.delete(group)
+    delete renderedSvgHeights[group]
+    return
+  }
+
+  svgEls.set(group, el)
+  svgGroups.set(el, group)
+  svgResizeObserver?.observe(el)
+  nextTick(() => updateRenderedSvgHeight(group, el))
+}
+
+onMounted(() => {
+  svgResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const group = svgGroups.get(entry.target)
+      if (group) renderedSvgHeights[group] = entry.contentRect.height || groupHeights.value[group]
+    }
+  })
+  for (const [group, el] of svgEls) {
+    svgResizeObserver.observe(el)
+    updateRenderedSvgHeight(group, el)
+  }
+})
+
+onBeforeUnmount(() => {
+  svgResizeObserver?.disconnect()
+  svgResizeObserver = null
+})
 
 const renderedGroups = computed<MapGroup[]>(() => {
   if (focus) return [focus.group]
@@ -137,6 +179,10 @@ function pickDistrict(name: string) {
   emit('pick', { kind: 'district', id: name, name })
 }
 
+function districtNameForMarker(point: { name: string; district?: string }): string | undefined {
+  return capitalDistrictByName.get(point.name) ?? point.district
+}
+
 interface Marker {
   id: string
   name: string
@@ -149,19 +195,23 @@ interface Marker {
   sub?: string
   deg?: number
   arrowColor?: string
+  district?: string
   showName?: boolean
   dotOnly?: boolean
+  isCapital?: boolean
 }
 
 function fcMarkers(group: MapGroup): Marker[] {
   if (points) {
-    return (points as FcPoint[])
+    const pointMarkers = (points as (FcPoint & { isCapital?: boolean })[])
       .filter(pt => pt.group === group && pt.tmax != null)
       .map((pt) => {
         const { x, y } = projPoint(group, pt.lon, pt.lat)
+        const district = districtNameForMarker(pt)
         return {
           id: pt.id,
           name: pt.name,
+          district,
           x,
           y,
           fill: tempFill(pt.tmax!),
@@ -169,9 +219,11 @@ function fcMarkers(group: MapGroup): Marker[] {
           icon: pt.wt ? iconSvg(pt.wt, isNowDaytime()) : undefined,
           value: `${pt.tmax}°`,
           sub: pt.tmin != null ? `${pt.tmin}°` : undefined,
-          showName: Boolean(focus) && Boolean((pt as any).isCapital),
+          showName: Boolean(focus),
+          isCapital: Boolean(pt.isCapital || capitalDistrictByName.has(pt.name)),
         } satisfies Marker
       })
+    return visibleForecastMarkers(group, pointMarkers)
   }
 
   const fcPoints = forecastData.filter(pt =>
@@ -188,6 +240,7 @@ function fcMarkers(group: MapGroup): Marker[] {
         return {
           id: pt.id,
           name: district.name,
+          district: district.name,
           x: district.cx,
           y: district.cy,
           fill: tempFill(pt.tmax!),
@@ -196,6 +249,7 @@ function fcMarkers(group: MapGroup): Marker[] {
           value: `${pt.tmax}°`,
           sub: pt.tmin != null ? `${pt.tmin}°` : undefined,
           showName: true,
+          isCapital: true,
         } satisfies Marker
       })
       .filter((marker): marker is Marker => marker != null)
@@ -217,13 +271,15 @@ function fcMarkers(group: MapGroup): Marker[] {
     })
   }
 
-  return fcPoints
+  const markers = fcPoints
     .filter(pt => pt.group === group && pt.tmax != null)
     .map((pt) => {
       const { x, y } = projPoint(group, pt.lon, pt.lat)
+      const district = districtNameForMarker(pt)
       return {
         id: pt.id,
         name: pt.name,
+        district,
         x,
         y,
         fill: tempFill(pt.tmax!),
@@ -232,8 +288,10 @@ function fcMarkers(group: MapGroup): Marker[] {
         value: `${pt.tmax}°`,
         sub: pt.tmin != null ? `${pt.tmin}°` : undefined,
         showName: Boolean(focus),
+        isCapital: capitalDistrictByName.has(pt.name) || Boolean(focus?.district && pt.name === focus.district),
       }
     })
+  return visibleForecastMarkers(group, markers)
 }
 
 function obsMarkers(group: MapGroup): Marker[] {
@@ -299,6 +357,15 @@ function markers(group: MapGroup): Marker[] {
 }
 
 function pickMarker(marker: Marker) {
+  if (marker.isCapital && marker.district) {
+    emit('pick', {
+      kind: 'district',
+      id: marker.district,
+      name: marker.district,
+    })
+    return
+  }
+
   emit('pick', {
     kind: layer === 'sea' ? 'sea' : 'location',
     id: marker.id,
@@ -306,9 +373,8 @@ function pickMarker(marker: Marker) {
   })
 }
 
-function tooltipFor(marker: Marker): string {
-  if (layer === 'forecast' || (focus && (layer === 'warnings' || layer === 'fire'))) return `${marker.name} ${marker.value}${marker.sub ? ` / ${marker.sub}` : ''}`
-  return `${marker.name} ${marker.value}`
+function markerTemperature(marker: Marker): string {
+  return marker.sub ? `${marker.value} / ${marker.sub}` : marker.value
 }
 
 function districtLabels(group: MapGroup) {
@@ -316,49 +382,52 @@ function districtLabels(group: MapGroup) {
   return districtsFor(group).filter(district => district.cx != null && district.cy != null)
 }
 
+function districtLabelX(group: MapGroup, district: { cx?: number; bbox?: number[] }): number {
+  if (group === 'azores' && district.bbox) return district.bbox[2] - 10
+  if (group === 'madeira' && district.bbox) return district.bbox[0] + 8
+  return district.cx ?? 0
+}
+
+function districtLabelY(group: MapGroup, district: { cy?: number; bbox?: number[] }): number {
+  const warningOffset = layer === 'warnings' || layer === 'fire' ? 10 : 0
+  if (group !== 'mainland' && district.bbox) return district.bbox[1] + 12 + warningOffset
+  return (district.cy ?? 0) + warningOffset
+}
+
+function districtLabelAnchor(group: MapGroup): 'start' | 'middle' | 'end' {
+  if (group === 'azores') return 'end'
+  if (group === 'madeira') return 'start'
+  return 'middle'
+}
+
+function districtLabelFont(group: MapGroup): number {
+  if (group === 'mainland') return 7.4
+  return 6.2
+}
+
+function districtLabelStroke(group: MapGroup): number {
+  return group === 'mainland' ? 4 : 2.5
+}
+
 function screenPxToSvg(group: MapGroup, px: number): number {
   const [, , , viewHeight] = viewBoxBounds(group)
-  return px * viewHeight / groupHeights.value[group]
-}
-
-function forecastMarkerCount(group: MapGroup): number {
-  if (points) return (points as FcPoint[]).filter(pt => pt.group === group && pt.tmax != null).length
-  if (!focus && variant === 'full' && group === 'mainland') return districtsFor(group).length
-  return forecastData.filter(pt =>
-    pt.group === group
-    && pt.tmax != null
-    && (!focus?.district || pt.district === focus.district)
-  ).length
-}
-
-function forecastDensity(group: MapGroup): 'open' | 'balanced' | 'dense' {
-  const count = forecastMarkerCount(group)
-  if (!focus) return 'balanced'
-  if (count >= 13) return 'dense'
-  if (count >= 8) return 'balanced'
-  return 'open'
+  return px * viewHeight / (renderedSvgHeights[group] ?? groupHeights.value[group])
 }
 
 function markerIconSize(group: MapGroup): number {
   if (variant === 'mini') return 7
-  const px = focus
-    ? forecastDensity(group) === 'dense' ? 23 : forecastDensity(group) === 'balanced' ? 25 : 27
-    : group === 'mainland' ? 31 : 27
+  const px = focus ? 27 : group === 'mainland' ? 31 : 27
   return screenPxToSvg(group, px)
 }
 
 function markerValueFont(group: MapGroup): number {
   if (variant === 'mini') return 6.5
-  const px = focus
-    ? forecastDensity(group) === 'dense' ? 10.5 : 11.5
-    : group === 'mainland' ? 12 : 10.5
+  const px = focus ? 11.5 : group === 'mainland' ? 12 : 10.5
   return screenPxToSvg(group, px)
 }
 
 function markerNameFont(group: MapGroup): number {
-  const px = focus
-    ? forecastDensity(group) === 'dense' ? 9.25 : forecastDensity(group) === 'balanced' ? 10 : 10.75
-    : group === 'mainland' ? 11 : 10
+  const px = focus ? 10.75 : group === 'mainland' ? 11 : 10
   return screenPxToSvg(group, px)
 }
 
@@ -372,6 +441,56 @@ function markerNameOffset(group: MapGroup): number {
 
 function markerStroke(group: MapGroup, px: number): number {
   return screenPxToSvg(group, px)
+}
+
+interface MarkerBounds {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+function markerBounds(group: MapGroup, marker: Marker): MarkerBounds {
+  const iconSize = markerIconSize(group)
+  const valueFont = markerValueFont(group)
+  const nameFont = markerNameFont(group)
+  const pad = screenPxToSvg(group, 5)
+  const valueWidth = markerTemperature(marker).length * valueFont * 0.62
+  const nameWidth = marker.showName ? marker.name.length * nameFont * 0.58 : 0
+  const width = Math.max(iconSize, valueWidth, nameWidth) + pad * 2
+  const top = marker.y - iconSize * 0.58 - pad
+  const bottom = marker.showName
+    ? marker.y + markerNameOffset(group) + nameFont * 0.35 + pad
+    : marker.y + markerValueOffset(group) + valueFont * 0.35 + pad
+  return {
+    left: marker.x - width / 2,
+    top,
+    right: marker.x + width / 2,
+    bottom,
+  }
+}
+
+function boundsOverlap(a: MarkerBounds, b: MarkerBounds): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+}
+
+function visibleForecastMarkers(group: MapGroup, input: Marker[]): Marker[] {
+  if (!focus || variant !== 'full' || layer !== 'forecast') return input
+
+  const kept: { marker: Marker; bounds: MarkerBounds }[] = []
+  const ordered = input
+    .map((marker, index) => ({ marker, index }))
+    .sort((a, b) => Number(b.marker.isCapital) - Number(a.marker.isCapital) || a.index - b.index)
+
+  for (const item of ordered) {
+    const bounds = markerBounds(group, item.marker)
+    if (kept.some(existing => boundsOverlap(bounds, existing.bounds))) continue
+    kept.push({ marker: item.marker, bounds })
+  }
+
+  return kept
+    .sort((a, b) => input.indexOf(a.marker) - input.indexOf(b.marker))
+    .map(item => item.marker)
 }
 
 function heatBlobR(group: MapGroup): number {
@@ -421,6 +540,7 @@ function groupLabel(group: MapGroup): string {
         {{ groupLabel(group) }}
       </div>
       <svg
+        :ref="(el) => setSvgEl(group, el as SVGSVGElement | null)"
         :viewBox="viewBoxFor(group)"
         :width="groupWidth(group)"
         :height="groupHeights[group]"
@@ -458,13 +578,26 @@ function groupLabel(group: MapGroup): string {
           v-for="district in districtsFor(group)"
           :key="district.name"
           :d="district.d"
+          :data-district="district.name"
           :fill="districtFill(district.name)"
           stroke="none"
           :class="{ 'pt-map__district--pickable': isDistrictPickable(district.name) }"
           @click="pickDistrict(district.name)"
-        >
-          <title>{{ district.name }}</title>
-        </path>
+        />
+
+        <path
+          v-for="district in districtsFor(group).filter(d => group !== 'mainland')"
+          :key="`hit-${district.name}`"
+          :d="district.d"
+          :data-district-hit="district.name"
+          fill="none"
+          stroke="transparent"
+          stroke-width="14"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="pt-map__district--pickable"
+          @click="pickDistrict(district.name)"
+        />
 
         <!-- Phase 2: heat-field overlay on top of fills -->
         <g
@@ -507,16 +640,16 @@ function groupLabel(group: MapGroup): string {
         <text
           v-for="district in districtLabels(group)"
           :key="`label-${district.name}`"
-          :x="district.cx"
-          :y="(district.cy ?? 0) + (layer === 'warnings' || layer === 'fire' ? 10 : 0)"
-          text-anchor="middle"
+          :x="districtLabelX(group, district)"
+          :y="districtLabelY(group, district)"
+          :text-anchor="districtLabelAnchor(group)"
           font-family="IBM Plex Sans, sans-serif"
-          :font-size="group === 'mainland' ? 7.4 : 8.5"
+          :font-size="districtLabelFont(group)"
           font-weight="600"
           fill="oklch(0.44 0.014 255)"
           paint-order="stroke"
           stroke="oklch(0.99 0.003 255 / 0.92)"
-          stroke-width="4"
+          :stroke-width="districtLabelStroke(group)"
           stroke-linejoin="round"
           style="pointer-events:none;"
         >{{ district.name }}</text>
@@ -526,8 +659,6 @@ function groupLabel(group: MapGroup): string {
           :key="marker.id"
           class="pt-map__marker"
           @click="pickMarker(marker)"
-          @mouseenter="hover = marker.id"
-          @mouseleave="hover = null"
         >
           <template v-if="layer === 'forecast' && marker.icon">
             <template v-if="marker.dotOnly">
@@ -535,14 +666,14 @@ function groupLabel(group: MapGroup): string {
             </template>
             <template v-else>
               <image :x="marker.x - markerIconSize(group) / 2" :y="marker.y - markerIconSize(group) * 0.58" :width="markerIconSize(group)" :height="markerIconSize(group)" :href="marker.icon" />
-              <text :x="marker.x" :y="marker.y + markerValueOffset(group)" text-anchor="middle" font-family="IBM Plex Mono, monospace" :font-size="markerValueFont(group)" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 4.25)" stroke-linejoin="round">{{ marker.value }}</text>
+              <text :x="marker.x" :y="marker.y + markerValueOffset(group)" text-anchor="middle" font-family="IBM Plex Mono, monospace" :font-size="markerValueFont(group)" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 4.25)" stroke-linejoin="round">{{ markerTemperature(marker) }}</text>
               <text v-if="marker.showName" :x="marker.x" :y="marker.y + markerNameOffset(group)" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" :font-size="markerNameFont(group)" font-weight="700" fill="oklch(0.22 0.014 255)" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 3.75)" stroke-linejoin="round">{{ marker.name }}</text>
             </template>
           </template>
 
           <template v-else-if="focus && (layer === 'warnings' || layer === 'fire') && marker.icon">
             <image :x="marker.x - markerIconSize(group) / 2" :y="marker.y - markerIconSize(group) * 0.58" :width="markerIconSize(group)" :height="markerIconSize(group)" :href="marker.icon" />
-            <text :x="marker.x" :y="marker.y + markerValueOffset(group)" text-anchor="middle" font-family="IBM Plex Mono, monospace" :font-size="markerValueFont(group)" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 4.25)" stroke-linejoin="round">{{ marker.value }}</text>
+            <text :x="marker.x" :y="marker.y + markerValueOffset(group)" text-anchor="middle" font-family="IBM Plex Mono, monospace" :font-size="markerValueFont(group)" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 4.25)" stroke-linejoin="round">{{ markerTemperature(marker) }}</text>
             <text :x="marker.x" :y="marker.y + markerNameOffset(group)" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" :font-size="markerNameFont(group)" font-weight="700" fill="oklch(0.22 0.014 255)" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 3.75)" stroke-linejoin="round">{{ marker.name }}</text>
           </template>
 
@@ -557,26 +688,6 @@ function groupLabel(group: MapGroup): string {
             <text v-if="marker.deg != null && variant !== 'mini'" :x="marker.x" :y="marker.y - 5" text-anchor="middle" font-family="IBM Plex Sans, monospace" font-size="9" :fill="marker.arrowColor" :transform="`rotate(${marker.deg}, ${marker.x}, ${marker.y - 5})`">↑</text>
           </template>
 
-          <g v-if="variant !== 'mini' && hover === marker.id">
-            <rect
-              :x="marker.x - screenPxToSvg(group, 42)"
-              :y="marker.y - screenPxToSvg(group, 26)"
-              :width="screenPxToSvg(group, 84)"
-              :height="screenPxToSvg(group, 17)"
-              :rx="screenPxToSvg(group, 3)"
-              fill="oklch(0.22 0.02 255)"
-              fill-opacity="0.9"
-            />
-            <text
-              :x="marker.x"
-              :y="marker.y - screenPxToSvg(group, 13)"
-              text-anchor="middle"
-              font-family="IBM Plex Sans, sans-serif"
-              :font-size="screenPxToSvg(group, 7.5)"
-              font-weight="600"
-              fill="#fff"
-            >{{ tooltipFor(marker) }}</text>
-          </g>
         </g>
       </svg>
     </section>
@@ -615,7 +726,7 @@ function groupLabel(group: MapGroup): string {
 
 .pt-map__group--azores,
 .pt-map__group--madeira {
-  max-width: 190px;
+  max-width: 260px;
 }
 
 .pt-map__label {
