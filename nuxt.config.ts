@@ -84,7 +84,8 @@ export default defineNuxtConfig({
     '/api/observations': { isr: 3600 },
     '/api/forecast/**': { isr: 3600 },
     '/api/map-forecast': { isr: 3600 },
-    '/maps': { isr: 600 }
+    '/maps': { isr: 600 },
+    '/maps/**': { isr: 600 }
   },
   modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vercel/analytics', '@vercel/speed-insights']
 })

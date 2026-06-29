@@ -59,11 +59,11 @@ const { prefetch } = usePrefetchForecast()
         to="/maps"
         :style="{
           width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-          border: `1px solid ${$route.path === '/maps' ? props.primary : 'oklch(0.88 0.008 255)'}`,
-          background: $route.path === '/maps' ? props.soft : 'transparent',
+          border: `1px solid ${$route.path.startsWith('/maps') ? props.primary : 'oklch(0.88 0.008 255)'}`,
+          background: $route.path.startsWith('/maps') ? props.soft : 'transparent',
           cursor: 'pointer', padding: '11px 12px', borderRadius: '9px',
           fontSize: '13px', fontWeight: 600,
-          color: $route.path === '/maps' ? props.primary : 'oklch(0.34 0.012 255)',
+          color: $route.path.startsWith('/maps') ? props.primary : 'oklch(0.34 0.012 255)',
           textDecoration: 'none', boxSizing: 'border-box',
         }"
         @click="emit('closeNav')"

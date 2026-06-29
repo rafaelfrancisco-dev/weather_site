@@ -16,6 +16,8 @@ const {
   observationData = [],
   warningData = {},
   fireData = {},
+  points,
+  choro,
 } = defineProps<{
   layer: MapLayer
   variant?: 'full' | 'mini'
@@ -27,7 +29,11 @@ const {
   observationData?: ObsPoint[]
   warningData?: Record<string, WarnEntry>
   fireData?: Record<string, number>
+  points?: any[]
+  choro?: Record<string, any>
 }>()
+
+const mapId = `pt-${Math.random().toString(36).slice(2, 7)}`
 
 const emit = defineEmits<{ pick: [pick: MapPick] }>()
 
@@ -86,9 +92,19 @@ function districtsFor(group: MapGroup) {
   return PT_GEO.districts.filter(d => d.group === group)
 }
 
+function choroEntry(name: string) {
+  if (!choro) return null
+  return choro[name] ?? choro[name === 'Açores' ? 'Azores' : name] ?? null
+}
+
 function districtFill(name: string): string {
   if (focus?.district === name) return 'oklch(0.93 0.013 200)'
   if (focus) return 'oklch(0.958 0.006 240)'
+  if (choro) {
+    const e = choroEntry(name)
+    if (layer === 'warnings') return e ? e.soft : 'oklch(0.93 0.008 150)'
+    if (layer === 'fire') return e ? e.fill : fireColor(1)
+  }
   if (layer === 'warnings') {
     const warning = warningData[name]
     if (warning) return levelSoft(warning.level as WarningLevel)
@@ -103,6 +119,11 @@ function districtFill(name: string): string {
 function districtStroke(name: string): string {
   if (focus?.district === name) return accent
   if (focus) return 'oklch(0.89 0.008 240)'
+  if (choro) {
+    const e = choroEntry(name)
+    if (layer === 'warnings') return e ? e.color : 'oklch(0.78 0.012 200)'
+    if (layer === 'fire') return 'oklch(0.94 0.005 255)'
+  }
   if (layer === 'warnings' && warningData[name]) return 'oklch(0.72 0.04 250)'
   if (layer === 'fire' && ((fireData[name] ?? FIRE[name] ?? 0) > 0)) return 'oklch(0.65 0.06 50)'
   return 'oklch(0.86 0.01 240)'
@@ -133,7 +154,27 @@ interface Marker {
 }
 
 function fcMarkers(group: MapGroup): Marker[] {
-  const points = forecastData.filter(pt =>
+  if (points) {
+    return (points as FcPoint[])
+      .filter(pt => pt.group === group && pt.tmax != null)
+      .map((pt) => {
+        const { x, y } = projPoint(group, pt.lon, pt.lat)
+        return {
+          id: pt.id,
+          name: pt.name,
+          x,
+          y,
+          fill: tempFill(pt.tmax!),
+          textColor: tempColor(pt.tmax!),
+          icon: pt.wt ? iconSvg(pt.wt, isNowDaytime()) : undefined,
+          value: `${pt.tmax}°`,
+          sub: pt.tmin != null ? `${pt.tmin}°` : undefined,
+          showName: Boolean(focus) && Boolean((pt as any).isCapital),
+        } satisfies Marker
+      })
+  }
+
+  const fcPoints = forecastData.filter(pt =>
     pt.group === group
     && pt.tmax != null
     && (!focus?.district || pt.district === focus.district)
@@ -142,7 +183,7 @@ function fcMarkers(group: MapGroup): Marker[] {
   if (!focus && variant === 'full' && group === 'mainland') {
     return districtsFor(group)
       .map((district) => {
-        const pt = points.find(point => point.district === district.name)
+        const pt = fcPoints.find(point => point.district === district.name)
         if (!pt || district.cx == null || district.cy == null) return null
         return {
           id: pt.id,
@@ -161,7 +202,7 @@ function fcMarkers(group: MapGroup): Marker[] {
   }
 
   if (variant === 'mini') {
-    return points.map((pt) => {
+    return fcPoints.map((pt) => {
       const { x, y } = projPoint(group, pt.lon, pt.lat)
       return {
         id: pt.id,
@@ -176,7 +217,7 @@ function fcMarkers(group: MapGroup): Marker[] {
     })
   }
 
-  return points
+  return fcPoints
     .filter(pt => pt.group === group && pt.tmax != null)
     .map((pt) => {
       const { x, y } = projPoint(group, pt.lon, pt.lat)
@@ -281,6 +322,7 @@ function screenPxToSvg(group: MapGroup, px: number): number {
 }
 
 function forecastMarkerCount(group: MapGroup): number {
+  if (points) return (points as FcPoint[]).filter(pt => pt.group === group && pt.tmax != null).length
   if (!focus && variant === 'full' && group === 'mainland') return districtsFor(group).length
   return forecastData.filter(pt =>
     pt.group === group
@@ -332,6 +374,31 @@ function markerStroke(group: MapGroup, px: number): number {
   return screenPxToSvg(group, px)
 }
 
+function heatBlobR(group: MapGroup): number {
+  if (focus?.district) {
+    const [, , vbW, vbH] = viewBoxBounds(group)
+    return Math.hypot(vbW, vbH) * 0.22
+  }
+  const g = GEO[group]
+  return Math.hypot(g.w, g.h) * (group === 'mainland' ? 0.17 : 0.27)
+}
+
+function heatClipPath(group: MapGroup): string {
+  if (focus?.district) {
+    const d = PT_GEO.districts.find(dist => dist.group === group && dist.name === focus.district)
+    if (d) return d.d
+  }
+  return districtsFor(group).map(d => d.d).join(' ')
+}
+
+function heatItems(group: MapGroup): { x: number; y: number; color: string }[] {
+  if (variant !== 'full') return []
+  if (layer === 'forecast') return fcMarkers(group).map(m => ({ x: m.x, y: m.y, color: m.fill }))
+  if (layer === 'observations') return obsMarkers(group).map(m => ({ x: m.x, y: m.y, color: m.fill }))
+  if (layer === 'uv') return uvMarkers(group).map(m => ({ x: m.x, y: m.y, color: m.fill }))
+  return []
+}
+
 function groupLabel(group: MapGroup): string {
   if (group === 'azores') return lang === 'pt' ? 'Açores' : 'Azores'
   if (group === 'madeira') return 'Madeira'
@@ -361,19 +428,81 @@ function groupLabel(group: MapGroup): string {
         role="img"
         :aria-label="groupLabel(group)"
       >
+        <!-- heat-field defs (always declared so IDs are stable in the DOM) -->
+        <defs v-if="variant === 'full' && (layer === 'forecast' || layer === 'observations' || layer === 'uv')">
+          <clipPath :id="`${mapId}-clip-${group}`">
+            <path :d="heatClipPath(group)" />
+          </clipPath>
+          <filter :id="`${mapId}-blur-${group}`" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+            <feGaussianBlur :stdDeviation="heatBlobR(group) * 0.32" />
+          </filter>
+          <radialGradient
+            v-for="(pt, i) in heatItems(group)"
+            :key="`${mapId}-grad-${group}-${i}`"
+            :id="`${mapId}-grad-${group}-${i}`"
+            gradientUnits="userSpaceOnUse"
+            :cx="pt.x"
+            :cy="pt.y"
+            :r="heatBlobR(group)"
+          >
+            <stop offset="0%" :stop-color="pt.color" stop-opacity="0.52" />
+            <stop offset="55%" :stop-color="pt.color" stop-opacity="0.22" />
+            <stop offset="100%" :stop-color="pt.color" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+
         <rect :width="GEO[group].w" :height="GEO[group].h" fill="oklch(0.965 0.014 230)" />
+
+        <!-- Phase 1: district fills only (no stroke) — click targets -->
         <path
           v-for="district in districtsFor(group)"
           :key="district.name"
           :d="district.d"
           :fill="districtFill(district.name)"
-          :stroke="districtStroke(district.name)"
-          :stroke-width="focus?.district === district.name ? 2.2 : 0.8"
+          stroke="none"
           :class="{ 'pt-map__district--pickable': isDistrictPickable(district.name) }"
           @click="pickDistrict(district.name)"
         >
           <title>{{ district.name }}</title>
         </path>
+
+        <!-- Phase 2: heat-field overlay on top of fills -->
+        <g
+          v-if="heatItems(group).length"
+          :clip-path="`url(#${mapId}-clip-${group})`"
+          :filter="`url(#${mapId}-blur-${group})`"
+          style="pointer-events:none;"
+        >
+          <circle
+            v-for="(pt, i) in heatItems(group)"
+            :key="`${mapId}-hc-${group}-${i}`"
+            :cx="pt.x"
+            :cy="pt.y"
+            :r="heatBlobR(group)"
+            :fill="`url(#${mapId}-grad-${group}-${i})`"
+          />
+        </g>
+
+        <!-- Phase 3: non-focused district strokes on top of heat -->
+        <path
+          v-for="district in districtsFor(group)"
+          :key="`s-${district.name}`"
+          :d="district.d"
+          fill="none"
+          :stroke="districtStroke(district.name)"
+          stroke-width="0.8"
+          style="pointer-events:none;"
+        />
+
+        <!-- Phase 4: focused district stroke rendered last so it's on top -->
+        <path
+          v-if="focus?.district && districtsFor(group).some(d => d.name === focus.district)"
+          :d="districtsFor(group).find(d => d.name === focus.district)!.d"
+          fill="none"
+          :stroke="accent"
+          stroke-width="2.2"
+          style="pointer-events:none;"
+        />
 
         <text
           v-for="district in districtLabels(group)"
@@ -429,8 +558,24 @@ function groupLabel(group: MapGroup): string {
           </template>
 
           <g v-if="variant !== 'mini' && hover === marker.id">
-            <rect :x="marker.x - 36" :y="marker.y - 38" width="72" height="15" rx="3" fill="oklch(0.22 0.02 255)" fill-opacity="0.9" />
-            <text :x="marker.x" :y="marker.y - 27.5" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="7" font-weight="600" fill="#fff">{{ tooltipFor(marker) }}</text>
+            <rect
+              :x="marker.x - screenPxToSvg(group, 42)"
+              :y="marker.y - screenPxToSvg(group, 26)"
+              :width="screenPxToSvg(group, 84)"
+              :height="screenPxToSvg(group, 17)"
+              :rx="screenPxToSvg(group, 3)"
+              fill="oklch(0.22 0.02 255)"
+              fill-opacity="0.9"
+            />
+            <text
+              :x="marker.x"
+              :y="marker.y - screenPxToSvg(group, 13)"
+              text-anchor="middle"
+              font-family="IBM Plex Sans, sans-serif"
+              :font-size="screenPxToSvg(group, 7.5)"
+              font-weight="600"
+              fill="#fff"
+            >{{ tooltipFor(marker) }}</text>
           </g>
         </g>
       </svg>
@@ -456,11 +601,16 @@ function groupLabel(group: MapGroup): string {
 
 .pt-map--focus {
   align-items: center;
+  width: 100%;
 }
 
 .pt-map__group {
   flex: none;
   min-width: 0;
+}
+
+.pt-map--focus .pt-map__group {
+  width: 100%;
 }
 
 .pt-map__group--azores,
@@ -483,6 +633,17 @@ function groupLabel(group: MapGroup): string {
   max-width: 100%;
   height: auto;
   overflow: visible;
+}
+
+.pt-map--focus .pt-map__svg {
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+}
+
+.pt-map--focus .pt-map__group--azores,
+.pt-map--focus .pt-map__group--madeira {
+  max-width: none;
 }
 
 .pt-map__district--pickable {

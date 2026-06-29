@@ -32,6 +32,8 @@ export function strings(lang: Lang) {
     precip: 'Precip',
     solar: 'Solar',
     maps: 'Weather maps',
+    weatherMaps: 'Weather maps',
+    national: 'National overview',
     mapUv: 'UV index',
     mapFire: 'Fire risk',
     mapSea: 'Sea state',
@@ -39,8 +41,12 @@ export function strings(lang: Lang) {
     mapRankings: 'Rankings',
     mapNoData: 'No data',
     mapOtherLayers: 'Other layers',
+    otherLayers: 'Other layers',
     mapActiveWarnings: 'Active warnings',
+    activeWarnings: 'Active warnings',
+    noActiveWarnings: 'No active warnings',
     mapTapHint: 'Tap a location for its full forecast',
+    mapPrimaryHint: 'Tap a location for its full forecast',
   }
   const pt = {
     subtitle: 'Serviço de Meteorologia e Clima',
@@ -73,6 +79,8 @@ export function strings(lang: Lang) {
     precip: 'Prec.',
     solar: 'Rad.',
     maps: 'Weather maps',
+    weatherMaps: 'Mapas meteorológicos',
+    national: 'Visão nacional',
     mapUv: 'Índice UV',
     mapFire: 'Risco de incêndio',
     mapSea: 'Estado do mar',
@@ -80,8 +88,12 @@ export function strings(lang: Lang) {
     mapRankings: 'Classificação',
     mapNoData: 'Sem dados',
     mapOtherLayers: 'Outras camadas',
+    otherLayers: 'Outras camadas',
     mapActiveWarnings: 'Avisos ativos',
+    activeWarnings: 'Avisos ativos',
+    noActiveWarnings: 'Sem avisos ativos',
     mapTapHint: 'Toque num local para ver a previsão completa',
+    mapPrimaryHint: 'Toque num local para ver a previsão completa',
   }
   return lang === 'pt' ? pt : en
 }
