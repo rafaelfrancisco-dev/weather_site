@@ -65,17 +65,21 @@ function groupWidth(group: MapGroup): number {
   return Math.round(groupHeights.value[group] * geo.w / geo.h)
 }
 
-function viewBoxFor(group: MapGroup): string {
+function viewBoxBounds(group: MapGroup): [number, number, number, number] {
   if (focus?.district) {
     const district = PT_GEO.districts.find(d => d.group === group && d.name === focus.district)
     if (district?.bbox) {
       const [x0, y0, x1, y1] = district.bbox
       const padX = Math.max(16, (x1 - x0) * 0.12)
       const padY = Math.max(16, (y1 - y0) * 0.12)
-      return `${x0 - padX} ${y0 - padY} ${x1 - x0 + padX * 2} ${y1 - y0 + padY * 2}`
+      return [x0 - padX, y0 - padY, x1 - x0 + padX * 2, y1 - y0 + padY * 2]
     }
   }
-  return `0 0 ${GEO[group].w} ${GEO[group].h}`
+  return [0, 0, GEO[group].w, GEO[group].h]
+}
+
+function viewBoxFor(group: MapGroup): string {
+  return viewBoxBounds(group).join(' ')
 }
 
 function districtsFor(group: MapGroup) {
@@ -129,7 +133,11 @@ interface Marker {
 }
 
 function fcMarkers(group: MapGroup): Marker[] {
-  const points = forecastData.filter(pt => pt.group === group && pt.tmax != null)
+  const points = forecastData.filter(pt =>
+    pt.group === group
+    && pt.tmax != null
+    && (!focus?.district || pt.district === focus.district)
+  )
 
   if (!focus && variant === 'full' && group === 'mainland') {
     return districtsFor(group)
@@ -189,7 +197,11 @@ function fcMarkers(group: MapGroup): Marker[] {
 
 function obsMarkers(group: MapGroup): Marker[] {
   return observationData
-    .filter(pt => pt.group === group && pt.temp != null)
+    .filter(pt =>
+      pt.group === group
+      && pt.temp != null
+      && (!focus?.district || pt.district === focus.district)
+    )
     .map((pt) => {
       const { x, y } = projPoint(group, pt.lon, pt.lat)
       return {
@@ -206,7 +218,11 @@ function obsMarkers(group: MapGroup): Marker[] {
 
 function uvMarkers(group: MapGroup): Marker[] {
   return forecastData
-    .filter(pt => pt.group === group && pt.uv != null)
+    .filter(pt =>
+      pt.group === group
+      && pt.uv != null
+      && (!focus?.district || pt.district === focus.district)
+    )
     .map((pt) => {
       const { x, y } = projPoint(group, pt.lon, pt.lat)
       return { id: pt.id, name: pt.name, x, y, fill: uvColor(pt.uv!), textColor: '#fff', value: String(pt.uv) }
@@ -257,6 +273,63 @@ function tooltipFor(marker: Marker): string {
 function districtLabels(group: MapGroup) {
   if (variant === 'mini' || layer === 'forecast') return []
   return districtsFor(group).filter(district => district.cx != null && district.cy != null)
+}
+
+function screenPxToSvg(group: MapGroup, px: number): number {
+  const [, , , viewHeight] = viewBoxBounds(group)
+  return px * viewHeight / groupHeights.value[group]
+}
+
+function forecastMarkerCount(group: MapGroup): number {
+  if (!focus && variant === 'full' && group === 'mainland') return districtsFor(group).length
+  return forecastData.filter(pt =>
+    pt.group === group
+    && pt.tmax != null
+    && (!focus?.district || pt.district === focus.district)
+  ).length
+}
+
+function forecastDensity(group: MapGroup): 'open' | 'balanced' | 'dense' {
+  const count = forecastMarkerCount(group)
+  if (!focus) return 'balanced'
+  if (count >= 13) return 'dense'
+  if (count >= 8) return 'balanced'
+  return 'open'
+}
+
+function markerIconSize(group: MapGroup): number {
+  if (variant === 'mini') return 7
+  const px = focus
+    ? forecastDensity(group) === 'dense' ? 23 : forecastDensity(group) === 'balanced' ? 25 : 27
+    : group === 'mainland' ? 31 : 27
+  return screenPxToSvg(group, px)
+}
+
+function markerValueFont(group: MapGroup): number {
+  if (variant === 'mini') return 6.5
+  const px = focus
+    ? forecastDensity(group) === 'dense' ? 10.5 : 11.5
+    : group === 'mainland' ? 12 : 10.5
+  return screenPxToSvg(group, px)
+}
+
+function markerNameFont(group: MapGroup): number {
+  const px = focus
+    ? forecastDensity(group) === 'dense' ? 9.25 : forecastDensity(group) === 'balanced' ? 10 : 10.75
+    : group === 'mainland' ? 11 : 10
+  return screenPxToSvg(group, px)
+}
+
+function markerValueOffset(group: MapGroup): number {
+  return markerIconSize(group) * 0.58
+}
+
+function markerNameOffset(group: MapGroup): number {
+  return markerIconSize(group) * 0.92
+}
+
+function markerStroke(group: MapGroup, px: number): number {
+  return screenPxToSvg(group, px)
 }
 
 function groupLabel(group: MapGroup): string {
@@ -332,16 +405,16 @@ function groupLabel(group: MapGroup): string {
               <circle :cx="marker.x" :cy="marker.y" r="3.6" :fill="marker.fill" stroke="#fff" stroke-width="0.8" />
             </template>
             <template v-else>
-              <image :x="marker.x - 13" :y="marker.y - 15" width="26" height="26" :href="marker.icon" />
-              <text :x="marker.x" :y="marker.y + 16" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.2" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">{{ marker.value }}</text>
-              <text v-if="marker.showName" :x="marker.x" :y="marker.y + 26" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" :font-size="focus ? 8.2 : 7.4" font-weight="700" fill="oklch(0.22 0.014 255)" paint-order="stroke" stroke="#fff" stroke-width="4.5" stroke-linejoin="round">{{ marker.name }}</text>
+              <image :x="marker.x - markerIconSize(group) / 2" :y="marker.y - markerIconSize(group) * 0.58" :width="markerIconSize(group)" :height="markerIconSize(group)" :href="marker.icon" />
+              <text :x="marker.x" :y="marker.y + markerValueOffset(group)" text-anchor="middle" font-family="IBM Plex Mono, monospace" :font-size="markerValueFont(group)" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 4.25)" stroke-linejoin="round">{{ marker.value }}</text>
+              <text v-if="marker.showName" :x="marker.x" :y="marker.y + markerNameOffset(group)" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" :font-size="markerNameFont(group)" font-weight="700" fill="oklch(0.22 0.014 255)" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 3.75)" stroke-linejoin="round">{{ marker.name }}</text>
             </template>
           </template>
 
           <template v-else-if="focus && (layer === 'warnings' || layer === 'fire') && marker.icon">
-            <image :x="marker.x - 13" :y="marker.y - 15" width="26" height="26" :href="marker.icon" />
-            <text :x="marker.x" :y="marker.y + 16" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.2" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" stroke-width="5" stroke-linejoin="round">{{ marker.value }}</text>
-            <text :x="marker.x" :y="marker.y + 26" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="8.2" font-weight="700" fill="oklch(0.22 0.014 255)" paint-order="stroke" stroke="#fff" stroke-width="4.5" stroke-linejoin="round">{{ marker.name }}</text>
+            <image :x="marker.x - markerIconSize(group) / 2" :y="marker.y - markerIconSize(group) * 0.58" :width="markerIconSize(group)" :height="markerIconSize(group)" :href="marker.icon" />
+            <text :x="marker.x" :y="marker.y + markerValueOffset(group)" text-anchor="middle" font-family="IBM Plex Mono, monospace" :font-size="markerValueFont(group)" font-weight="700" :fill="marker.textColor" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 4.25)" stroke-linejoin="round">{{ marker.value }}</text>
+            <text :x="marker.x" :y="marker.y + markerNameOffset(group)" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" :font-size="markerNameFont(group)" font-weight="700" fill="oklch(0.22 0.014 255)" paint-order="stroke" stroke="#fff" :stroke-width="markerStroke(group, 3.75)" stroke-linejoin="round">{{ marker.name }}</text>
           </template>
 
           <template v-else-if="layer === 'observations' || layer === 'uv'">
