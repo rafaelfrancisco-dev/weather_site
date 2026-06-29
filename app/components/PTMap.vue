@@ -350,7 +350,7 @@ function groupLabel(group: MapGroup): string {
       class="pt-map__group"
       :class="`pt-map__group--${group}`"
     >
-      <div v-if="variant !== 'mini' && group !== 'mainland'" class="pt-map__label">
+      <div v-if="variant !== 'mini'" class="pt-map__label">
         {{ groupLabel(group) }}
       </div>
       <svg
