@@ -45,6 +45,32 @@ export function windBg(s: number): string {
   return `oklch(${0.98 - (s - 20) * 0.003} 0.012 255)`
 }
 
+export function tempFill(t: number): string {
+  if (t <= 6) return 'oklch(0.74 0.13 256)'
+  if (t <= 10) return 'oklch(0.80 0.11 250)'
+  if (t <= 14) return 'oklch(0.86 0.08 235)'
+  if (t <= 18) return 'oklch(0.90 0.06 200)'
+  if (t <= 22) return 'oklch(0.90 0.07 140)'
+  if (t <= 26) return 'oklch(0.88 0.10 95)'
+  if (t <= 30) return 'oklch(0.83 0.13 72)'
+  if (t <= 34) return 'oklch(0.74 0.16 50)'
+  if (t <= 38) return 'oklch(0.65 0.19 35)'
+  return 'oklch(0.55 0.21 27)'
+}
+
+export function fireColor(n: number): string {
+  const stops = ['', 'oklch(0.78 0.10 150)', 'oklch(0.86 0.11 110)', 'oklch(0.83 0.13 80)', 'oklch(0.72 0.16 52)', 'oklch(0.57 0.20 30)']
+  return stops[n] ?? 'oklch(0.9 0.01 255)'
+}
+
+export function waveFill(h: number): string {
+  if (h < 1.5) return 'oklch(0.88 0.05 220)'
+  if (h < 2.5) return 'oklch(0.78 0.09 235)'
+  if (h < 3.5) return 'oklch(0.66 0.12 250)'
+  if (h < 4.5) return 'oklch(0.55 0.15 262)'
+  return 'oklch(0.45 0.16 270)'
+}
+
 export function uvColor(uv: number): string {
   if (uv < 3) return 'oklch(0.62 0.13 150)'
   if (uv < 6) return 'oklch(0.78 0.14 90)'

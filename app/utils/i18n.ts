@@ -30,7 +30,17 @@ export function strings(lang: Lang) {
     station: 'Station',
     pressure: 'Pressure',
     precip: 'Precip',
-    solar: 'Solar'
+    solar: 'Solar',
+    maps: 'Weather maps',
+    mapUv: 'UV index',
+    mapFire: 'Fire risk',
+    mapSea: 'Sea state',
+    mapReadout: 'Selected location',
+    mapRankings: 'Rankings',
+    mapNoData: 'No data',
+    mapOtherLayers: 'Other layers',
+    mapActiveWarnings: 'Active warnings',
+    mapTapHint: 'Tap a location for its full forecast',
   }
   const pt = {
     subtitle: 'Serviço de Meteorologia e Clima',
@@ -61,7 +71,17 @@ export function strings(lang: Lang) {
     station: 'Estação',
     pressure: 'Pressão',
     precip: 'Prec.',
-    solar: 'Rad.'
+    solar: 'Rad.',
+    maps: 'Weather maps',
+    mapUv: 'Índice UV',
+    mapFire: 'Risco de incêndio',
+    mapSea: 'Estado do mar',
+    mapReadout: 'Local selecionado',
+    mapRankings: 'Classificação',
+    mapNoData: 'Sem dados',
+    mapOtherLayers: 'Outras camadas',
+    mapActiveWarnings: 'Avisos ativos',
+    mapTapHint: 'Toque num local para ver a previsão completa',
   }
   return lang === 'pt' ? pt : en
 }
