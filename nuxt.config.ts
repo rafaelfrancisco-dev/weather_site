@@ -17,6 +17,12 @@ copyFileSync(
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
+  runtimeConfig: {
+    public: {
+      mapboxToken: ''  // set via NUXT_PUBLIC_MAPBOX_TOKEN env var
+    }
+  },
+  css: ['mapbox-gl/dist/mapbox-gl.css'],
   devtools: { enabled: true },
   app: {
     head: {

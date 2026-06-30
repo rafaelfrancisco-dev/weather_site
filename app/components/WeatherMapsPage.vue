@@ -7,7 +7,6 @@ import type { WarningLevel } from '~/utils/colors'
 import { dateTimeLabel } from '~/utils/format'
 import { isWarningActive, normalizeLevel, regionLabel } from '~/utils/transform'
 import { CAPITALS, FIRE, SEA_POINTS, geoGroup, iconSvg, isNowDaytime } from '~/utils/maps'
-import { PT_GEO } from '~/utils/portugal-geo-data'
 
 interface LayerDef {
   id: MapLayer
@@ -198,7 +197,6 @@ const latestObservation = computed(() => {
 const warningsSummary = computed<WarningSummary[]>(() =>
   Object.entries(districtWarnings.value)
     .map(([name, warning]) => {
-      const geoDistrict = PT_GEO.districts.find(d => d.name === name)
       const level = warning.level as WarningLevel
       return {
         name,
@@ -206,7 +204,7 @@ const warningsSummary = computed<WarningSummary[]>(() =>
         level,
         color: levelColor(level),
         soft: `color-mix(in srgb, ${levelColor(level)} 13%, white)`,
-        group: (geoDistrict?.group as MapGroup | undefined) ?? 'mainland',
+        group: districtGroupFor(name),
       }
     })
     .sort((a, b) => levelRank(b.level) - levelRank(a.level) || a.name.localeCompare(b.name))
@@ -280,45 +278,6 @@ watch(focusedLocations, async (locs) => {
   )
 }, { immediate: false })
 
-const mapChoro = computed<Record<string, any> | null>(() => {
-  if (activeLayer.value === 'warnings') {
-    const result: Record<string, any> = {}
-    for (const [name, entry] of Object.entries(districtWarnings.value)) {
-      const level = entry.level as WarningLevel
-      result[name] = { level, color: levelColor(level), soft: levelSoft(level), type: entry.type }
-    }
-    return result
-  }
-  if (activeLayer.value === 'fire') {
-    const result: Record<string, any> = {}
-    for (const [name, n] of Object.entries(FIRE)) {
-      result[name] = { n, fill: fireColor(n) }
-    }
-    return result
-  }
-  return null
-})
-
-const mapPoints = computed<any[] | null>(() => {
-  if (!focus.value) return null
-  return focusedLocations.value.map(loc => {
-    const fetched = districtLocationForecasts.value[loc.id] ?? null
-    const existing = locationForecast(loc)
-    return {
-      id: String(loc.id),
-      name: loc.name,
-      district: focus.value?.district ?? '',
-      group: focus.value!.group,
-      lat: loc.latitude,
-      lon: loc.longitude,
-      tmax: fetched?.tmax ?? existing?.tmax ?? null,
-      tmin: fetched?.tmin ?? existing?.tmin ?? null,
-      wt: fetched?.wt ?? existing?.wt ?? null,
-      uv: null,
-      isCapital: Boolean(existing),
-    }
-  })
-})
 
 function groupLabel(group: MapGroup): string {
   if (group === 'madeira') return 'Madeira'
@@ -331,18 +290,21 @@ function setLayer(nextLayer: MapLayer) {
   selectedPick.value = null
 }
 
-function geoDistrictForName(name: string) {
-  return PT_GEO.districts.find(d => d.name === name || (name === 'Açores' && d.name === 'Azores'))
+// Derive district group from the CAPITALS list (replaces PT_GEO lookup)
+const uniqueDistricts = [...new Map(CAPITALS.map(c => [c.district, c])).values()]
+
+function districtGroupFor(name: string): MapGroup {
+  return (uniqueDistricts.find(c => c.district === name)?.group as MapGroup) ?? 'mainland'
 }
 
-function geoDistrictForSlug(slug: string) {
-  return PT_GEO.districts.find(d => districtSlugMatches(d.name, slug))
+function districtForSlug(slug: string): { name: string; group: MapGroup } | null {
+  const found = uniqueDistricts.find(c => districtSlugMatches(c.district, slug))
+  if (!found) return null
+  return { name: found.district, group: found.group as MapGroup }
 }
 
 function openDistrict(name: string, group?: MapGroup) {
-  const geoDistrict = geoDistrictForName(name)
-  const district = geoDistrict?.name ?? name
-  focus.value = { group: group ?? (geoDistrict?.group as MapGroup | undefined) ?? 'mainland', district }
+  focus.value = { group: group ?? districtGroupFor(name), district: name }
   selectedPick.value = null
   districtMapExpanded.value = false
   const nextPath = districtHref(name)
@@ -400,17 +362,17 @@ watch(routeDistrictSlug, (slug) => {
     districtMapExpanded.value = false
     return
   }
-  const geoDistrict = geoDistrictForSlug(slug)
-  if (!geoDistrict) {
+  const found = districtForSlug(slug)
+  if (!found) {
     focus.value = null
     selectedPick.value = null
     districtMapExpanded.value = false
     return
   }
-  if (focus.value?.district !== geoDistrict.name || focus.value?.group !== geoDistrict.group) {
+  if (focus.value?.district !== found.name || focus.value?.group !== found.group) {
     districtMapExpanded.value = false
   }
-  focus.value = { group: geoDistrict.group as MapGroup, district: geoDistrict.name }
+  focus.value = { group: found.group, district: found.name }
   selectedPick.value = null
 }, { immediate: true })
 
@@ -433,12 +395,6 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
         <strong>{{ latestObservation }}</strong>
       </div>
     </header>
-
-    <div class="maps-warning" role="status">
-      {{ lang === 'pt'
-        ? 'As funcionalidades do mapa ainda estão em construção e podem ter erros.'
-        : 'Map features are still under construction and might be bugged.' }}
-    </div>
 
     <nav class="layer-tabs" aria-label="Weather map layers">
       <button
@@ -463,23 +419,14 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
         </div>
 
         <div class="map-frame map-frame--national">
-          <PTMap
+          <WeatherMap
             :layer="activeLayer"
-            variant="full"
             :focus="null"
             :height="primaryHeight"
-            :lang="lang"
-            :accent="c.primary"
             :forecast-data="forecastData"
-            :observation-data="obsPoints"
-            :warning-data="districtWarnings"
             :fire-data="FIRE"
-            :choro="mapChoro"
             @pick="handlePick"
           />
-          <div v-if="fcPending && (activeLayer === 'forecast' || activeLayer === 'uv')" class="map-loading">
-            Loading forecast...
-          </div>
         </div>
 
         <div class="legend">
@@ -544,19 +491,12 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
             >
               {{ districtMapToggleLabel }}
             </button>
-            <PTMap
+            <WeatherMap
               :layer="activeLayer"
-              variant="full"
               :focus="focus"
               :height="activeFocusHeight"
-              :lang="lang"
-              :accent="c.primary"
               :forecast-data="forecastData"
-              :observation-data="obsPoints"
-              :warning-data="districtWarnings"
               :fire-data="FIRE"
-              :choro="mapChoro"
-              :points="mapPoints ?? undefined"
               @pick="handlePick"
             />
           </div>
@@ -675,17 +615,6 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   font-weight: 600;
 }
 
-.maps-warning {
-  border: 1px solid oklch(0.86 0.09 84);
-  border-radius: 8px;
-  padding: 9px 12px;
-  background: oklch(0.98 0.035 86);
-  color: oklch(0.36 0.055 70);
-  font-size: 12.5px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
 .layer-tabs {
   display: flex;
   gap: 2px;
@@ -784,9 +713,14 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   overflow: hidden;
 }
 
+.map-frame--national,
+.map-frame--focus {
+  padding: 0;
+  align-items: stretch;
+}
+
 .map-frame--focus {
   min-height: 300px;
-  align-items: center;
 }
 
 .map-frame--expanded {
@@ -814,19 +748,6 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
 .map-expand-button:hover {
   border-color: oklch(0.76 0.04 245);
   color: oklch(0.26 0.03 250);
-}
-
-.map-loading {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-radius: 6px;
-  padding: 7px 12px;
-  background: rgba(255, 255, 255, 0.88);
-  color: oklch(0.45 0.01 255);
-  font-size: 12px;
-  box-shadow: 0 8px 24px rgba(35, 44, 60, 0.08);
 }
 
 .legend {
