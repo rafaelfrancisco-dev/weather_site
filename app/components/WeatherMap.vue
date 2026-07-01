@@ -420,12 +420,13 @@ function initLayers() {
     },
   })
 
-  // District overlay text (warning type / fire risk number) — contrast-picked per level/tier
+  // District overlay text (warning type / fire risk number) — contrast-picked per level/tier.
+  // No minzoom: the national view opens at zoom ~6.3, and with only ~20 districts on screen
+  // there's no clutter risk from showing labels immediately.
   map!.addLayer({
     id: 'district-overlay-labels',
     type: 'symbol',
     source: 'districts',
-    minzoom: 7,
     filter: ['!=', ['get', 'labelText'], ''],
     layout: {
       'text-field': ['get', 'labelText'],

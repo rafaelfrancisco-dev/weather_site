@@ -21,17 +21,20 @@ function interpolateStops(stops: [number, string][], t: number): string {
   return stops[0][1]
 }
 
-// RdBu-inspired diverging palette cold → hot
+// hex port of colors.ts's tempFill() (same oklch stops, sampled at the legend's exact
+// breakpoints) so anything colored via mapboxTempColor()/mapboxTempColorStops() — the
+// forecast choropleth, cluster bubbles, observation dots — matches the on-page legend
 const TEMP_STOPS: [number, string][] = [
-  [-5, '#2166ac'],
-  [0,  '#4393c3'],
-  [8,  '#92c5de'],
-  [14, '#d1e5f0'],
-  [18, '#fddbc7'],
-  [22, '#f4a582'],
-  [26, '#d6604d'],
-  [30, '#b2182b'],
-  [38, '#67001f'],
+  [4,  '#72adfb'],
+  [9,  '#86c3ff'],
+  [13, '#9ddafe'],
+  [17, '#afebee'],
+  [21, '#c6eabe'],
+  [25, '#ecd78a'],
+  [29, '#fbb961'],
+  [33, '#f98942'],
+  [37, '#eb5833'],
+  [41, '#d01d21'],
 ]
 
 export function mapboxTempColor(t: number): string {
