@@ -4,7 +4,7 @@ import type { MapLayer, MapFocus, FcPoint, MapPick } from '#shared/map-types'
 import { buildDistrictGeoJSON } from '~/utils/districtGeoJSON'
 import {
   mapboxTempColor, mapboxLevelColor, mapboxFireColor, mapboxWaveColor, mapboxUvColor, mapboxAccentColor,
-  mapboxTempTextColor, mapboxObsValueColor, mapboxUvValueColor, mapboxWarningTextColor, mapboxFireTextColor, mapboxFireHaloColor,
+  mapboxTempTextColor, mapboxUvValueColor, mapboxWarningTextColor, mapboxFireTextColor, mapboxFireHaloColor,
   mapboxTempColorStops,
 } from '~/utils/mapColors'
 import { CAPITALS, SEA_POINTS, iconSvg, isNowDaytime } from '~/utils/maps'
@@ -134,7 +134,7 @@ function buildObsGeoJSON(): GeoJSON.FeatureCollection {
         temperature: temp,
         color: mapboxTempColor(temp),
         tempLabel: `${temp}°`,
-        labelColor: mapboxObsValueColor(temp),
+        tempTextColor: mapboxTempTextColor(temp),
       },
     })
   }
@@ -257,13 +257,16 @@ const ALL_TOGGLED_LAYERS = [
   'capitals-uv-labels',
   'sea-circles',
   'sea-labels',
+  'loc-clusters',
+  'loc-cluster-count',
+  'loc-points',
   'loc-icons',
   'loc-temp-labels',
   'loc-name-labels',
 ] as const
 
 const LAYER_GROUPS: Record<MapLayer, string[]> = {
-  forecast:     ['district-fill', 'loc-icons', 'loc-temp-labels', 'loc-name-labels'],
+  forecast:     ['district-fill', 'loc-clusters', 'loc-cluster-count', 'loc-points', 'loc-icons', 'loc-temp-labels', 'loc-name-labels'],
   observations: ['obs-circles', 'obs-labels', 'obs-value-labels'],
   warnings:     ['district-fill', 'district-overlay-labels'],
   fire:         ['district-fill', 'district-overlay-labels'],
@@ -279,13 +282,6 @@ function applyLayerVisibility() {
       map.setLayoutProperty(id, 'visibility', active.has(id) ? 'visible' : 'none')
     } catch { /* layer may not exist yet */ }
   }
-  // on the forecast layer, a location with a streamed-in icon hides its plain dot in favor
-  // of loc-icons/loc-temp-labels; other layers always show the plain nav dot
-  try {
-    map.setFilter('loc-points', props.layer === 'forecast'
-      ? ['all', ['!', ['has', 'point_count']], ['==', ['get', 'iconId'], '']]
-      : ['!', ['has', 'point_count']])
-  } catch { /* layer may not exist yet */ }
   if (props.layer === 'forecast') scheduleForecastFetch()
 }
 
@@ -449,37 +445,38 @@ function initLayers() {
     id: 'obs-circles',
     type: 'circle',
     source: 'obs',
-    minzoom: 8,
     paint: {
       'circle-color': ['get', 'color'],
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 12, 9],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 8, 6, 12, 9],
       'circle-stroke-width': 1.5,
       'circle-stroke-color': '#fff',
       'circle-opacity': 0.92,
     },
   })
 
-  // Temperature value on top of each station dot — contrast-picked (matches design's valuePlot)
+  // Temperature value below each station dot, text-safe temperature color + white halo
+  // (matches the loc-temp-labels/sea-labels pattern — a value drawn on a colored dot at this
+  // marker density either clips or is illegible, so it sits alongside instead)
   map!.addLayer({
     id: 'obs-value-labels',
     type: 'symbol',
     source: 'obs',
-    minzoom: 9,
+    minzoom: 7,
     layout: {
       'text-field': ['get', 'tempLabel'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 9, 9.5, 12, 12],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 7, 10, 12, 12],
       'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
-      'text-offset': [0, 0],
+      'text-offset': [0, 1.2],
       'text-allow-overlap': true,
     },
     paint: {
-      'text-color': ['get', 'labelColor'],
-      'text-halo-color': 'rgba(0,0,0,0.12)',
-      'text-halo-width': 0.4,
+      'text-color': ['get', 'tempTextColor'],
+      'text-halo-color': '#fff',
+      'text-halo-width': 1.6,
     },
   })
 
-  // Station name labels below the dot, at high zoom
+  // Station name labels below the temp value, at high zoom
   map!.addLayer({
     id: 'obs-labels',
     type: 'symbol',
@@ -488,7 +485,7 @@ function initLayers() {
     layout: {
       'text-field': ['get', 'stationName'],
       'text-size': 11,
-      'text-offset': [0, 1.5],
+      'text-offset': [0, 2.4],
       'text-font': ['DIN Offc Pro Regular', 'Arial Unicode MS Regular'],
     },
     paint: {
@@ -621,13 +618,13 @@ function initLayers() {
   })
 
   // Individual location dots (unclustered) — the fallback appearance before a location's
-  // forecast has streamed in, or for layers other than forecast (see applyLayerVisibility,
-  // which swaps the filter so locations with a loaded icon show the icon layer instead)
+  // forecast has streamed in; only shown on the forecast layer (see LAYER_GROUPS), same as
+  // loc-icons/loc-clusters, so it never lingers on other map types
   map!.addLayer({
     id: 'loc-points',
     type: 'circle',
     source: 'locations',
-    filter: ['!', ['has', 'point_count']],
+    filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'iconId'], '']],
     paint: {
       'circle-color': accent,
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 12, 8],
