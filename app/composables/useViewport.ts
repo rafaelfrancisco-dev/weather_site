@@ -1,6 +1,18 @@
-const { width } = useWindowSize({ initialWidth: 1180 })
-const mobile = computed(() => width.value <= 700)
-
 export function useViewport() {
+  const mobile = ref(false)
+
+  const update = () => {
+    mobile.value = window.innerWidth <= 700
+  }
+
+  onMounted(() => {
+    update()
+    window.addEventListener('resize', update, { passive: true })
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('resize', update)
+  })
+
   return { mobile }
 }

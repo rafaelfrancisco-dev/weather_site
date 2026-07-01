@@ -17,6 +17,12 @@ copyFileSync(
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
+  runtimeConfig: {
+    public: {
+      mapboxToken: ''  // set via NUXT_PUBLIC_MAPBOX_TOKEN env var
+    }
+  },
+  css: ['mapbox-gl/dist/mapbox-gl.css'],
   devtools: { enabled: true },
   app: {
     head: {
@@ -82,7 +88,10 @@ export default defineNuxtConfig({
     '/api/weather-types': { isr: 86400 },
     '/api/warnings': { isr: 600 },
     '/api/observations': { isr: 3600 },
-    '/api/forecast/**': { isr: 3600 }
+    '/api/forecast/**': { isr: 3600 },
+    '/api/map-forecast': { isr: 3600 },
+    '/maps': { isr: 600 },
+    '/maps/**': { isr: 600 }
   },
   modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vercel/analytics', '@vercel/speed-insights']
 })

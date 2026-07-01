@@ -54,6 +54,26 @@ const { prefetch } = usePrefetchForecast()
       <span style="position:absolute; left:26px; top:calc(50% + 5px); transform:translateY(-50%); font-size:15px; color:oklch(0.55 0.01 255);">⌕</span>
     </div>
 
+    <div style="padding:12px 12px 2px;">
+      <NuxtLink
+        to="/maps"
+        :style="{
+          width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+          border: `1px solid ${$route.path.startsWith('/maps') ? props.primary : 'oklch(0.88 0.008 255)'}`,
+          background: $route.path.startsWith('/maps') ? props.soft : 'transparent',
+          cursor: 'pointer', padding: '11px 12px', borderRadius: '9px',
+          fontSize: '13px', fontWeight: 600,
+          color: $route.path.startsWith('/maps') ? props.primary : 'oklch(0.34 0.012 255)',
+          textDecoration: 'none', boxSizing: 'border-box',
+        }"
+        @click="emit('closeNav')"
+      >
+        <span style="font-size:15px; flex:none; line-height:1;">▦</span>
+        <span style="flex:1;">{{ props.t.maps ?? 'Weather maps' }}</span>
+        <span style="font-size:11px; opacity:0.6;">›</span>
+      </NuxtLink>
+    </div>
+
     <div style="padding:13px 16px 9px; font-size:10.5px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; color:oklch(0.55 0.01 255);">{{ props.t.regions }}</div>
 
     <div v-for="region in props.tree" :key="region.id">
