@@ -4,9 +4,10 @@ import type { MapLayer, MapFocus, FcPoint, MapPick } from '#shared/map-types'
 import { buildDistrictGeoJSON } from '~/utils/districtGeoJSON'
 import {
   mapboxTempColor, mapboxLevelColor, mapboxFireColor, mapboxWaveColor, mapboxUvColor, mapboxAccentColor,
-  HEATMAP_COLOR_STOPS,
+  mapboxTempTextColor, mapboxObsValueColor, mapboxUvValueColor, mapboxWarningTextColor, mapboxFireTextColor, mapboxFireHaloColor,
+  mapboxTempColorStops,
 } from '~/utils/mapColors'
-import { CAPITALS, SEA_POINTS } from '~/utils/maps'
+import { CAPITALS, SEA_POINTS, iconSvg, isNowDaytime } from '~/utils/maps'
 import { normalizeLevel, isWarningActive } from '~/utils/transform'
 import { levelRank } from '~/utils/colors'
 import { locationHref } from '#shared/slug'
@@ -30,6 +31,11 @@ const mapReady = ref(false)
 
 let map: Map | null = null
 let popup: Popup | null = null
+
+// Per-location forecast, fetched lazily for whichever non-capital locations are currently
+// on screen (see fetchVisibleLocationForecasts) — populated progressively as the user pans/zooms
+const locationForecastCache = new Map<number, { tmax: number | null; wt: number | null }>()
+let forecastFetchTimer: ReturnType<typeof setTimeout> | null = null
 
 // --- district warnings computed (same logic as WeatherMapsPage) ---
 
@@ -56,6 +62,23 @@ const districtWarnings = computed<Record<string, { type: string; level: string }
   return result
 })
 
+// approximate per-location temperature (district capital's tmax) used only to color
+// cluster bubbles by aggregate temperature — real per-location forecasts are fetched
+// lazily (see locationForecastCache) and most aren't loaded while still clustered
+const districtTempByName = computed<Record<string, number>>(() => {
+  const result: Record<string, number> = {}
+  for (const fc of props.forecastData) {
+    if (fc.tmax != null) result[fc.district] = fc.tmax
+  }
+  return result
+})
+
+const nationalAvgTemp = computed(() => {
+  const values = Object.values(districtTempByName.value)
+  if (!values.length) return 20
+  return values.reduce((a, b) => a + b, 0) / values.length
+})
+
 // --- GeoJSON builders ---
 
 function buildDistrictDataGeoJSON(): GeoJSON.FeatureCollection {
@@ -66,21 +89,27 @@ function buildDistrictDataGeoJSON(): GeoJSON.FeatureCollection {
       const name = feat.properties?.name as string
       let fillColor = '#f0f0f2'
       let labelText = ''
+      let labelColor = '#1e2a3a'
+      let labelHalo = '#ffffff'
 
       if (props.layer === 'warnings') {
         const warn = districtWarnings.value[name]
-        fillColor = warn ? mapboxLevelColor(warn.level as 'green' | 'yellow' | 'orange' | 'red') : '#f0f0f2'
+        const level = warn?.level as 'green' | 'yellow' | 'orange' | 'red' | undefined
+        fillColor = level ? mapboxLevelColor(level) : '#f0f0f2'
         labelText = warn?.type ?? ''
+        labelColor = level ? mapboxWarningTextColor(level) : '#1e2a3a'
       } else if (props.layer === 'fire') {
         const n = props.fireData[name] ?? 0
         fillColor = n > 0 ? mapboxFireColor(n) : '#f0f0f2'
         labelText = n > 0 ? String(n) : ''
+        labelColor = n > 0 ? mapboxFireTextColor(n) : '#1e2a3a'
+        labelHalo = n > 0 ? mapboxFireHaloColor(n) : '#ffffff'
       } else if (props.layer === 'forecast') {
         const fc = props.forecastData.find(f => f.district === name)
         fillColor = fc?.tmax != null ? mapboxTempColor(fc.tmax) : '#f0f0f2'
       }
 
-      return { ...feat, properties: { ...feat.properties, fillColor, labelText } }
+      return { ...feat, properties: { ...feat.properties, fillColor, labelText, labelColor, labelHalo } }
     }),
   }
 }
@@ -99,7 +128,14 @@ function buildObsGeoJSON(): GeoJSON.FeatureCollection {
     features.push({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [s.longitude, s.latitude] },
-      properties: { stationID: id, stationName: s.name, temperature: temp, color: mapboxTempColor(temp) },
+      properties: {
+        stationID: id,
+        stationName: s.name,
+        temperature: temp,
+        color: mapboxTempColor(temp),
+        tempLabel: `${temp}°`,
+        labelColor: mapboxObsValueColor(temp),
+      },
     })
   }
   return { type: 'FeatureCollection', features }
@@ -108,14 +144,74 @@ function buildObsGeoJSON(): GeoJSON.FeatureCollection {
 function buildLocationsGeoJSON(): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
-    features: locations.value.map(loc => ({
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: [loc.longitude, loc.latitude] },
-      properties: { id: loc.id, name: loc.name, href: locationHref(loc.id, loc.name) },
-    })),
+    features: locations.value.map(loc => {
+      const fc = locationForecastCache.get(loc.id)
+      const hasForecast = fc != null && fc.tmax != null
+      const districtName = districtMap.value.get(loc.districtID)?.name
+      const clusterTemp = (districtName && districtTempByName.value[districtName] != null)
+        ? districtTempByName.value[districtName]
+        : nationalAvgTemp.value
+      return {
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [loc.longitude, loc.latitude] },
+        properties: {
+          id: loc.id,
+          name: loc.name,
+          href: locationHref(loc.id, loc.name),
+          tempLabel: hasForecast ? `${fc.tmax}°` : '',
+          tempTextColor: hasForecast ? mapboxTempTextColor(fc.tmax!) : '#1e2a3a',
+          iconId: hasForecast && fc.wt != null ? weatherIconId(fc.wt, isNowDaytime()) : '',
+          clusterTemp,
+        },
+      }
+    }),
   }
 }
 
+// Lazily fetch forecast data for whichever non-capital location dots are currently rendered
+// on screen (not clustered), so icons/temps "stream in" as the user pans/zooms instead of
+// eagerly fetching all ~300 locations up front.
+function scheduleForecastFetch() {
+  if (forecastFetchTimer) clearTimeout(forecastFetchTimer)
+  forecastFetchTimer = setTimeout(fetchVisibleLocationForecasts, 300)
+}
+
+async function fetchVisibleLocationForecasts() {
+  if (!map || props.layer !== 'forecast') return
+  let features: GeoJSON.Feature[]
+  try {
+    features = map.queryRenderedFeatures({ layers: ['loc-points'] })
+  } catch { return }
+
+  const missingIds = [...new Set(
+    features
+      .map(f => f.properties?.id as number | undefined)
+      .filter((id): id is number => id != null && !locationForecastCache.has(id))
+  )]
+  if (!missingIds.length) return
+
+  // mark as pending immediately so a second pan/zoom before the response lands doesn't re-fetch
+  for (const id of missingIds) locationForecastCache.set(id, { tmax: null, wt: null })
+
+  try {
+    const batch = await $fetch<{ id: string; tmax: number | null; wt: number | null }[]>('/api/map-forecast-batch', {
+      query: { ids: missingIds.join(',') },
+    })
+    for (const entry of batch) {
+      locationForecastCache.set(Number(entry.id), { tmax: entry.tmax, wt: entry.wt })
+    }
+    if (mapReady.value) {
+      (map.getSource('locations') as GeoJSONSource | undefined)?.setData(buildLocationsGeoJSON())
+    }
+  } catch {
+    // drop the pending placeholders so a later pan/zoom retries these ids instead of
+    // treating the failed fetch as a permanent "no forecast" result
+    for (const id of missingIds) locationForecastCache.delete(id)
+  }
+}
+
+// Only feeds the UV layer now — forecast-layer markers use the unified locations
+// rendering below so every point (capital or not) looks the same (see buildLocationsGeoJSON)
 function buildCapitalsGeoJSON(): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
@@ -130,8 +226,8 @@ function buildCapitalsGeoJSON(): GeoJSON.FeatureCollection {
         uv: fc.uv,
         tempColor: fc.tmax != null ? mapboxTempColor(fc.tmax) : '#888888',
         uvColor: fc.uv != null ? mapboxUvColor(fc.uv) : '#888888',
-        tempLabel: fc.tmax != null ? `${fc.tmax}°` : '',
         uvLabel: fc.uv != null ? `${fc.uv}` : '',
+        uvLabelColor: fc.uv != null ? mapboxUvValueColor(fc.uv) : '#1e2a3a',
       },
     })),
   }
@@ -153,23 +249,25 @@ function buildSeaGeoJSON(): GeoJSON.FeatureCollection {
 const ALL_TOGGLED_LAYERS = [
   'district-fill',
   'district-overlay-labels',
-  'temp-heatmap',
   'obs-circles',
   'obs-labels',
-  'capitals-temp-circles',
-  'capitals-temp-labels',
+  'obs-value-labels',
+  'capitals-name-labels',
   'capitals-uv-circles',
   'capitals-uv-labels',
   'sea-circles',
   'sea-labels',
+  'loc-icons',
+  'loc-temp-labels',
+  'loc-name-labels',
 ] as const
 
 const LAYER_GROUPS: Record<MapLayer, string[]> = {
-  forecast:     ['district-fill', 'capitals-temp-circles', 'capitals-temp-labels'],
-  observations: ['temp-heatmap', 'obs-circles', 'obs-labels'],
+  forecast:     ['district-fill', 'loc-icons', 'loc-temp-labels', 'loc-name-labels'],
+  observations: ['obs-circles', 'obs-labels', 'obs-value-labels'],
   warnings:     ['district-fill', 'district-overlay-labels'],
   fire:         ['district-fill', 'district-overlay-labels'],
-  uv:           ['capitals-uv-circles', 'capitals-uv-labels'],
+  uv:           ['capitals-uv-circles', 'capitals-uv-labels', 'capitals-name-labels'],
   sea:          ['sea-circles', 'sea-labels'],
 }
 
@@ -180,6 +278,53 @@ function applyLayerVisibility() {
     try {
       map.setLayoutProperty(id, 'visibility', active.has(id) ? 'visible' : 'none')
     } catch { /* layer may not exist yet */ }
+  }
+  // on the forecast layer, a location with a streamed-in icon hides its plain dot in favor
+  // of loc-icons/loc-temp-labels; other layers always show the plain nav dot
+  try {
+    map.setFilter('loc-points', props.layer === 'forecast'
+      ? ['all', ['!', ['has', 'point_count']], ['==', ['get', 'iconId'], '']]
+      : ['!', ['has', 'point_count']])
+  } catch { /* layer may not exist yet */ }
+  if (props.layer === 'forecast') scheduleForecastFetch()
+}
+
+// --- Weather icons (rasterized from the shared iconSvg data-URIs into Mapbox images) ---
+
+const WEATHER_TYPES = [1, 2, 3, 4, 5, 6, 7, 9, 10, 25]
+const ICON_SIZE = 64
+
+function weatherIconId(wt: number, day: boolean): string {
+  return `wt-icon-${wt}-${day ? 'd' : 'n'}`
+}
+
+function svgToImageData(svgDataUri: string, size = ICON_SIZE): Promise<ImageData> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { reject(new Error('no 2d context')); return }
+      ctx.drawImage(img, 0, 0, size, size)
+      resolve(ctx.getImageData(0, 0, size, size))
+    }
+    img.onerror = () => reject(new Error('icon failed to load'))
+    img.src = svgDataUri
+  })
+}
+
+async function loadWeatherIcons() {
+  for (const wt of WEATHER_TYPES) {
+    for (const day of [true, false]) {
+      const id = weatherIconId(wt, day)
+      if (map!.hasImage(id)) continue
+      try {
+        const data = await svgToImageData(iconSvg(wt, day))
+        if (!map!.hasImage(id)) map!.addImage(id, data)
+      } catch { /* ignore, marker falls back to the plain circle */ }
+    }
   }
 }
 
@@ -213,12 +358,13 @@ onMounted(async () => {
     center,
     zoom,
     attributionControl: false,
-    scrollZoom: false,
+    scrollZoom: true,
   })
 
   popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '220px' })
 
-  map.on('load', () => {
+  map.on('load', async () => {
+    await loadWeatherIcons()
     initSources()
     initLayers()
     initInteractions()
@@ -242,6 +388,11 @@ function initSources() {
     cluster: true,
     clusterMaxZoom: 10,
     clusterRadius: 50,
+    // aggregate each cluster's (approximate) temperature so the bubble can be colored by
+    // average rather than a flat neutral color — see clusterTemp in buildLocationsGeoJSON
+    clusterProperties: {
+      tempSum: ['+', ['get', 'clusterTemp']],
+    },
   })
   map!.addSource('capitals', { type: 'geojson', data: buildCapitalsGeoJSON() })
   map!.addSource('sea', { type: 'geojson', data: buildSeaGeoJSON() })
@@ -273,7 +424,7 @@ function initLayers() {
     },
   })
 
-  // District overlay text (warning type / fire risk number)
+  // District overlay text (warning type / fire risk number) — contrast-picked per level/tier
   map!.addLayer({
     id: 'district-overlay-labels',
     type: 'symbol',
@@ -287,30 +438,13 @@ function initLayers() {
       'text-max-width': 10,
     },
     paint: {
-      'text-color': '#1e2a3a',
-      'text-halo-color': 'rgba(255,255,255,0.85)',
-      'text-halo-width': 1.5,
+      'text-color': ['get', 'labelColor'],
+      'text-halo-color': ['get', 'labelHalo'],
+      'text-halo-width': 1.6,
     },
   })
 
-  // Temperature heatmap (observations layer)
-  map!.addLayer({
-    id: 'temp-heatmap',
-    type: 'heatmap',
-    source: 'obs',
-    paint: {
-      'heatmap-weight': ['interpolate', ['linear'], ['get', 'temperature'], -5, 0, 10, 0.35, 25, 0.65, 40, 1],
-      'heatmap-intensity': 1.1,
-      'heatmap-color': [
-        'interpolate', ['linear'], ['heatmap-density'],
-        ...HEATMAP_COLOR_STOPS.flatMap(([stop, color]) => [stop, color]),
-      ],
-      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 30, 9, 50],
-      'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.85, 10, 0],
-    },
-  })
-
-  // Observation station circles (appear when heatmap fades)
+  // Observation station circles
   map!.addLayer({
     id: 'obs-circles',
     type: 'circle',
@@ -325,7 +459,27 @@ function initLayers() {
     },
   })
 
-  // Station name labels at high zoom
+  // Temperature value on top of each station dot — contrast-picked (matches design's valuePlot)
+  map!.addLayer({
+    id: 'obs-value-labels',
+    type: 'symbol',
+    source: 'obs',
+    minzoom: 9,
+    layout: {
+      'text-field': ['get', 'tempLabel'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 9, 9.5, 12, 12],
+      'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+      'text-offset': [0, 0],
+      'text-allow-overlap': true,
+    },
+    paint: {
+      'text-color': ['get', 'labelColor'],
+      'text-halo-color': 'rgba(0,0,0,0.12)',
+      'text-halo-width': 0.4,
+    },
+  })
+
+  // Station name labels below the dot, at high zoom
   map!.addLayer({
     id: 'obs-labels',
     type: 'symbol',
@@ -334,47 +488,35 @@ function initLayers() {
     layout: {
       'text-field': ['get', 'stationName'],
       'text-size': 11,
-      'text-offset': [0, 1.3],
+      'text-offset': [0, 1.5],
       'text-font': ['DIN Offc Pro Regular', 'Arial Unicode MS Regular'],
     },
     paint: {
       'text-color': '#3e4860',
       'text-halo-color': '#fff',
-      'text-halo-width': 1,
+      'text-halo-width': 1.6,
     },
   })
 
-  // Capital circles — temperature color (forecast layer)
+  // Capital name labels, stacked below the UV value (uv layer only — forecast-layer
+  // capitals now render through the unified loc-icons/loc-temp-labels/loc-name-labels below)
   map!.addLayer({
-    id: 'capitals-temp-circles',
-    type: 'circle',
-    source: 'capitals',
-    paint: {
-      'circle-color': ['get', 'tempColor'],
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 9, 10, 14],
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#fff',
-    },
-  })
-
-  // Capital temperature labels (forecast layer)
-  map!.addLayer({
-    id: 'capitals-temp-labels',
+    id: 'capitals-name-labels',
     type: 'symbol',
     source: 'capitals',
     minzoom: 6,
-    filter: ['!=', ['get', 'tempLabel'], ''],
     layout: {
-      'text-field': ['get', 'tempLabel'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 6, 9, 10, 12],
-      'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
-      'text-offset': [0, 0],
-      'text-allow-overlap': true,
+      'text-field': ['get', 'name'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 12],
+      'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Regular'],
+      'text-offset': [0, 2.9],
+      'text-allow-overlap': false,
+      'text-optional': true,
     },
     paint: {
-      'text-color': '#fff',
-      'text-halo-color': 'rgba(0,0,0,0.15)',
-      'text-halo-width': 0.5,
+      'text-color': '#1e2a3a',
+      'text-halo-color': '#fff',
+      'text-halo-width': 1.6,
     },
   })
 
@@ -391,7 +533,7 @@ function initLayers() {
     },
   })
 
-  // Capital UV labels (uv layer)
+  // Capital UV labels (uv layer) — value sits on top of the dot, contrast-picked (matches valuePlot)
   map!.addLayer({
     id: 'capitals-uv-labels',
     type: 'symbol',
@@ -406,9 +548,9 @@ function initLayers() {
       'text-allow-overlap': true,
     },
     paint: {
-      'text-color': '#fff',
-      'text-halo-color': 'rgba(0,0,0,0.15)',
-      'text-halo-width': 0.5,
+      'text-color': ['get', 'uvLabelColor'],
+      'text-halo-color': 'rgba(0,0,0,0.12)',
+      'text-halo-width': 0.4,
     },
   })
 
@@ -426,7 +568,7 @@ function initLayers() {
     },
   })
 
-  // Sea labels (wave height)
+  // Sea labels (wave height) — fixed dark navy above the marker, matches design (not wave-colored)
   map!.addLayer({
     id: 'sea-labels',
     type: 'symbol',
@@ -435,28 +577,32 @@ function initLayers() {
       'text-field': ['get', 'label'],
       'text-size': ['interpolate', ['linear'], ['zoom'], 5, 9, 10, 12],
       'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
-      'text-offset': [0, 0],
+      'text-offset': [0, -1.6],
       'text-allow-overlap': true,
     },
     paint: {
-      'text-color': '#fff',
-      'text-halo-color': 'rgba(0,0,0,0.1)',
-      'text-halo-width': 0.5,
+      'text-color': '#1e2a3a',
+      'text-halo-color': '#fff',
+      'text-halo-width': 1.6,
     },
   })
 
-  // Location cluster bubbles
+  // Location cluster bubbles — colored by the cluster's average (approximate) temperature
+  // instead of a flat color, so it reads as part of the weather map rather than a generic pin
   map!.addLayer({
     id: 'loc-clusters',
     type: 'circle',
     source: 'locations',
     filter: ['has', 'point_count'],
     paint: {
-      'circle-color': '#6b7280',
+      'circle-color': [
+        'interpolate', ['linear'], ['/', ['get', 'tempSum'], ['get', 'point_count']],
+        ...mapboxTempColorStops(),
+      ],
       'circle-radius': ['step', ['get', 'point_count'], 14, 10, 18, 50, 24],
       'circle-stroke-width': 2,
       'circle-stroke-color': '#fff',
-      'circle-opacity': 0.88,
+      'circle-opacity': 0.9,
     },
   })
 
@@ -474,7 +620,9 @@ function initLayers() {
     paint: { 'text-color': '#fff' },
   })
 
-  // Individual location dots (unclustered)
+  // Individual location dots (unclustered) — the fallback appearance before a location's
+  // forecast has streamed in, or for layers other than forecast (see applyLayerVisibility,
+  // which swaps the filter so locations with a loaded icon show the icon layer instead)
   map!.addLayer({
     id: 'loc-points',
     type: 'circle',
@@ -487,40 +635,102 @@ function initLayers() {
       'circle-stroke-color': '#fff',
     },
   })
+
+  // Streamed-in weather icon (forecast layer only) — every location (capital or not)
+  // renders the same way once its forecast has loaded, no special-cased marker for capitals
+  map!.addLayer({
+    id: 'loc-icons',
+    type: 'symbol',
+    source: 'locations',
+    filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'iconId'], '']],
+    layout: {
+      'icon-image': ['get', 'iconId'],
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 6, 0.38, 12, 0.5],
+      'icon-allow-overlap': true,
+    },
+  })
+
+  // Streamed-in temperature label (forecast layer only)
+  map!.addLayer({
+    id: 'loc-temp-labels',
+    type: 'symbol',
+    source: 'locations',
+    filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'iconId'], '']],
+    layout: {
+      'text-field': ['get', 'tempLabel'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 12, 12],
+      'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+      'text-offset': [0, 1.4],
+      'text-allow-overlap': true,
+    },
+    paint: {
+      'text-color': ['get', 'tempTextColor'],
+      'text-halo-color': '#fff',
+      'text-halo-width': 1.6,
+    },
+  })
+
+  // Streamed-in name label, below the temp value (forecast layer only)
+  map!.addLayer({
+    id: 'loc-name-labels',
+    type: 'symbol',
+    source: 'locations',
+    filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'iconId'], '']],
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 6, 9, 12, 11],
+      'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Regular'],
+      'text-offset': [0, 2.6],
+      'text-allow-overlap': false,
+      'text-optional': true,
+    },
+    paint: {
+      'text-color': '#1e2a3a',
+      'text-halo-color': '#fff',
+      'text-halo-width': 1.6,
+    },
+  })
 }
 
 function initInteractions() {
-  // District click → emit pick
-  map!.on('click', 'district-fill', (e) => {
-    const feat = e.features?.[0]
-    if (!feat) return
-    const name = feat.properties?.name as string
-    emit('pick', { kind: 'district', id: name, name })
-  })
+  // Re-check which non-capital locations are on screen after every pan/zoom so their
+  // forecasts stream in progressively (a one-off initial call covers the first paint,
+  // since 'moveend' only fires after a user-initiated pan/zoom)
+  map!.on('moveend', scheduleForecastFetch)
 
-  // Location cluster → zoom in
-  map!.on('click', 'loc-clusters', async (e) => {
+  // Location cluster → zoom in. getClusterExpansionZoom is callback-based (not Promise-based)
+  // in this mapbox-gl version — awaiting the return value directly awaits the GeoJSONSource
+  // itself (a truthy non-Promise), silently producing a non-numeric "zoom" that corrupts the
+  // camera transform. Also guard against a stale cluster id (a concurrent setData from
+  // scheduleForecastFetch rebuilds Supercluster's id space) by falling back to a plain zoom-in
+  // rather than leaving the click a no-op.
+  map!.on('click', 'loc-clusters', (e) => {
     const feats = map!.queryRenderedFeatures(e.point, { layers: ['loc-clusters'] })
     if (!feats.length) return
     const clusterId = feats[0].properties!.cluster_id as number
+    const coords = (feats[0].geometry as GeoJSON.Point).coordinates as [number, number]
     const src = map!.getSource('locations') as GeoJSONSource
-    try {
-      const zoom = await src.getClusterExpansionZoom(clusterId)
-      const coords = (feats[0].geometry as GeoJSON.Point).coordinates as [number, number]
+    src.getClusterExpansionZoom(clusterId, (err, zoom) => {
+      if (err || typeof zoom !== 'number' || !Number.isFinite(zoom)) {
+        map!.easeTo({ center: coords, zoom: map!.getZoom() + 2 })
+        return
+      }
       map!.easeTo({ center: coords, zoom })
-    } catch { /* ignore */ }
+    })
   })
 
-  // Location dot → emit pick (parent handles navigation)
-  map!.on('click', 'loc-points', (e) => {
-    const feat = e.features?.[0]
-    if (!feat) return
-    const p = feat.properties!
-    emit('pick', { kind: 'location', id: String(p.id), name: p.name as string })
-  })
+  // Location dot / streamed-in icon → emit pick (parent handles navigation)
+  for (const layer of ['loc-points', 'loc-icons']) {
+    map!.on('click', layer, (e) => {
+      const feat = e.features?.[0]
+      if (!feat) return
+      const p = feat.properties!
+      emit('pick', { kind: 'location', id: String(p.id), name: p.name as string })
+    })
+  }
 
   // Cursor pointers
-  const clickable = ['district-fill', 'loc-clusters', 'loc-points', 'obs-circles', 'sea-circles', 'capitals-temp-circles', 'capitals-uv-circles']
+  const clickable = ['loc-clusters', 'loc-points', 'loc-icons', 'obs-circles', 'sea-circles', 'capitals-uv-circles']
   for (const layer of clickable) {
     map!.on('mouseenter', layer, () => { map!.getCanvas().style.cursor = 'pointer' })
     map!.on('mouseleave', layer, () => { map!.getCanvas().style.cursor = '' })
@@ -539,32 +749,36 @@ function initInteractions() {
   })
   map!.on('mouseleave', 'obs-circles', () => popup!.remove())
 
-  // Capital hover popup (temp and uv layers share the same source)
-  for (const layer of ['capitals-temp-circles', 'capitals-uv-circles']) {
+  // Capital hover popup (uv layer)
+  map!.on('mouseenter', 'capitals-uv-circles', (e) => {
+    const feat = e.features?.[0]
+    if (!feat) return
+    const p = feat.properties!
+    const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
+    popup!
+      .setLngLat(coords)
+      .setHTML(capitalPopupHtml(p))
+      .addTo(map!)
+  })
+  map!.on('mouseleave', 'capitals-uv-circles', () => popup!.remove())
+
+  // Location dot / icon hover popup
+  for (const layer of ['loc-points', 'loc-icons']) {
     map!.on('mouseenter', layer, (e) => {
       const feat = e.features?.[0]
       if (!feat) return
       const p = feat.properties!
       const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
+      const tempHtml = p.tempLabel
+        ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${p.tempTextColor};margin-left:6px;">${p.tempLabel}</span>`
+        : ''
       popup!
         .setLngLat(coords)
-        .setHTML(capitalPopupHtml(p))
+        .setHTML(`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:5px 8px;font-weight:600;color:#1e2a3a;">${p.name}${tempHtml}</div>`)
         .addTo(map!)
     })
     map!.on('mouseleave', layer, () => popup!.remove())
   }
-
-  // Location dot hover popup
-  map!.on('mouseenter', 'loc-points', (e) => {
-    const feat = e.features?.[0]
-    if (!feat) return
-    const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
-    popup!
-      .setLngLat(coords)
-      .setHTML(`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:5px 8px;font-weight:600;color:#1e2a3a;">${feat.properties!.name}</div>`)
-      .addTo(map!)
-  })
-  map!.on('mouseleave', 'loc-points', () => popup!.remove())
 
   // Sea hover popup
   map!.on('mouseenter', 'sea-circles', (e) => {

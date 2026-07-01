@@ -320,10 +320,6 @@ function closeDistrict() {
 
 function handlePick(pick: MapPick) {
   selectedPick.value = pick
-  if (pick.kind === 'district') {
-    openDistrict(pick.name)
-    return
-  }
   if (pick.kind === 'location' && (activeLayer.value === 'forecast' || activeLayer.value === 'uv')) {
     const id = Number(pick.id)
     if (Number.isFinite(id)) router.push(locationHref(id, pick.name))

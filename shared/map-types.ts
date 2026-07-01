@@ -34,7 +34,7 @@ export interface WarnEntry {
 }
 
 export interface MapPick {
-  kind: 'location' | 'district' | 'sea'
+  kind: 'location' | 'sea'
   id: string
   name: string
 }

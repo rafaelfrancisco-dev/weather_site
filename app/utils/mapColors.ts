@@ -38,6 +38,31 @@ export function mapboxTempColor(t: number): string {
   return interpolateStops(TEMP_STOPS, t)
 }
 
+// Same TEMP_STOPS gradient as mapboxTempColor(), expressed as a Mapbox GL "interpolate" input
+// array so a paint expression can reuse it directly (e.g. coloring a cluster by average temp)
+export function mapboxTempColorStops(): (number | string)[] {
+  return TEMP_STOPS.flatMap(([stop, color]) => [stop, color])
+}
+
+// text-safe temperature color (saturated, legible on white/light basemap) — hex port of
+// colors.ts's tempColor(), distinct from the softer mapboxTempColor()/tempFill() used for fills
+export function mapboxTempTextColor(t: number): string {
+  if (t <= 10) return '#2f6fb0'
+  if (t >= 30) return '#c8412a'
+  if (t >= 25) return '#c07830'
+  return '#1e2a3a'
+}
+
+// contrast-picked label color for a value drawn on top of a colored dot (observations)
+export function mapboxObsValueColor(t: number): string {
+  return (t >= 30 || t <= 8) ? '#ffffff' : '#1e2a3a'
+}
+
+// contrast-picked label color for a value drawn on top of a colored dot (uv)
+export function mapboxUvValueColor(uv: number): string {
+  return (uv >= 6 || uv < 3) ? '#ffffff' : '#1e2a3a'
+}
+
 export function mapboxLevelColor(level: 'green' | 'yellow' | 'orange' | 'red'): string {
   const map: Record<string, string> = {
     green:  '#3a9e5a',
@@ -46,6 +71,12 @@ export function mapboxLevelColor(level: 'green' | 'yellow' | 'orange' | 'red'): 
     red:    '#c83820',
   }
   return map[level] ?? '#3a9e5a'
+}
+
+// contrast-picked text color for a district warning label sitting on its level-colored fill —
+// yellow fills are light enough to need dark text, the rest read fine in white
+export function mapboxWarningTextColor(level: 'green' | 'yellow' | 'orange' | 'red'): string {
+  return level === 'yellow' ? '#4a3c10' : '#ffffff'
 }
 
 export function mapboxAccentColor(theme: AccentTheme): string {
@@ -64,6 +95,16 @@ export function mapboxFireColor(n: number): string {
     5: '#c82010',
   }
   return stops[n] ?? '#ccc'
+}
+
+// contrast-picked text/halo for a fire-risk label sitting on its risk-colored fill —
+// the top two tiers (4-5) are dark enough to need white text with a dark halo
+export function mapboxFireTextColor(n: number): string {
+  return n >= 4 ? '#ffffff' : '#1e2a3a'
+}
+
+export function mapboxFireHaloColor(n: number): string {
+  return n >= 4 ? 'rgba(60,20,10,0.55)' : '#ffffff'
 }
 
 // Wave height in metres (light → deep blue)
@@ -86,12 +127,3 @@ export function mapboxUvColor(uv: number): string {
   if (uv < 11) return '#c83010'
   return '#983890'
 }
-
-export const HEATMAP_COLOR_STOPS: [number, string][] = [
-  [0,   'rgba(33,102,172,0)'],
-  [0.2, '#4393c3'],
-  [0.4, '#92c5de'],
-  [0.6, '#f4a582'],
-  [0.8, '#d6604d'],
-  [1,   '#b2182b'],
-]

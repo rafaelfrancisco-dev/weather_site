@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Map, GeoJSONSource } from 'mapbox-gl'
-import { mapboxTempColor, mapboxAccentColor } from '~/utils/mapColors'
+import { mapboxTempColor, mapboxAccentColor, mapboxObsValueColor } from '~/utils/mapColors'
 
 const props = defineProps<{
   center: { lat: number; lon: number }
@@ -45,7 +45,14 @@ function buildGeoJSON(): GeoJSON.FeatureCollection {
   const stationFeatures: GeoJSON.Feature[] = nearestObs.value.map(obs => ({
     type: 'Feature',
     geometry: { type: 'Point', coordinates: [obs.lon, obs.lat] },
-    properties: { type: 'station', stationName: obs.name, temperature: obs.temp, color: mapboxTempColor(obs.temp) },
+    properties: {
+      type: 'station',
+      stationName: obs.name,
+      temperature: obs.temp,
+      color: mapboxTempColor(obs.temp),
+      tempLabel: `${obs.temp}°`,
+      labelColor: mapboxObsValueColor(obs.temp),
+    },
   }))
 
   const centerFeature: GeoJSON.Feature = {
@@ -104,6 +111,25 @@ onMounted(async () => {
     })
 
     map!.addLayer({
+      id: 'obs-mini-value-labels',
+      type: 'symbol',
+      source: 'obs-mini',
+      filter: ['==', ['get', 'type'], 'station'],
+      layout: {
+        'text-field': ['get', 'tempLabel'],
+        'text-size': 11,
+        'text-offset': [0, 0],
+        'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+        'text-allow-overlap': true,
+      },
+      paint: {
+        'text-color': ['get', 'labelColor'],
+        'text-halo-color': 'rgba(0,0,0,0.12)',
+        'text-halo-width': 0.4,
+      },
+    })
+
+    map!.addLayer({
       id: 'obs-mini-labels',
       type: 'symbol',
       source: 'obs-mini',
@@ -112,13 +138,13 @@ onMounted(async () => {
       layout: {
         'text-field': ['get', 'stationName'],
         'text-size': 11,
-        'text-offset': [0, 1.4],
+        'text-offset': [0, 1.5],
         'text-font': ['DIN Offc Pro Regular', 'Arial Unicode MS Regular'],
       },
       paint: {
         'text-color': '#3e4860',
         'text-halo-color': '#fff',
-        'text-halo-width': 1,
+        'text-halo-width': 1.6,
       },
     })
 
