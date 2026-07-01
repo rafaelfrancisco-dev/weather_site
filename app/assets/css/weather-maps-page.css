@@ -1,0 +1,497 @@
+.maps-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: oklch(0.4 0.012 255);
+  font-size: 14px;
+}
+
+.maps-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 1180px;
+  color: oklch(0.25 0.012 255);
+}
+
+.maps-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.maps-eyebrow {
+  margin: 0 0 2px;
+  color: oklch(0.55 0.01 255);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.maps-hero h1 {
+  margin: 0;
+  color: oklch(0.22 0.014 255);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.08;
+}
+
+.maps-updated {
+  display: grid;
+  gap: 3px;
+  text-align: right;
+}
+
+.maps-updated span,
+.maps-updated strong {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+
+.maps-updated span {
+  color: oklch(0.5 0.01 255);
+  font-weight: 400;
+  text-transform: none;
+}
+
+.maps-updated strong {
+  color: oklch(0.28 0.012 255);
+  font-weight: 600;
+}
+
+.layer-tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid oklch(0.88 0.008 255);
+}
+
+.layer-tab {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 9px 13px;
+  background: transparent;
+  color: oklch(0.48 0.01 255);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.layer-tab--active {
+  border-bottom-color: var(--tab-accent);
+  color: var(--tab-accent);
+  font-weight: 700;
+}
+
+.layer-tab__swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.atlas-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.district-grid {
+  display: grid;
+  grid-template-columns: minmax(480px, 2fr) minmax(300px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.primary-map-panel,
+.district-map-panel {
+  min-width: 0;
+}
+
+.district-grid--expanded .district-map-panel,
+.district-grid--expanded .location-panel {
+  grid-column: 1 / -1;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 9px;
+}
+
+.panel-heading h2,
+.side-section__header h2 {
+  margin: 0;
+  color: oklch(0.30 0.012 255);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.panel-heading p,
+.district-map-panel > p {
+  margin: 0;
+  color: oklch(0.55 0.01 255);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.map-frame {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  border: 1px solid oklch(0.89 0.008 255);
+  border-radius: 10px;
+  background: #fff;
+  min-height: 360px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.map-frame--national,
+.map-frame--focus {
+  padding: 0;
+  align-items: stretch;
+}
+
+.map-frame--focus {
+  min-height: 300px;
+}
+
+.map-frame--expanded {
+  min-height: 620px;
+}
+
+.map-expand-button {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  border: 1px solid oklch(0.86 0.012 245);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: oklch(0.34 0.018 250);
+  box-shadow: 0 8px 24px rgba(35, 44, 60, 0.08);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.map-expand-button:hover {
+  border-color: oklch(0.76 0.04 245);
+  color: oklch(0.26 0.03 250);
+}
+
+.legend {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.legend__title {
+  margin-bottom: 6px;
+  color: oklch(0.55 0.01 255);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.legend__bar {
+  display: flex;
+  align-items: stretch;
+  height: 24px;
+  border: 1px solid oklch(0.9 0.006 255);
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.legend__bar span {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.warnings-panel,
+.location-panel {
+  border: 1px solid oklch(0.89 0.008 255);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.warnings-panel h2 {
+  margin: 0;
+  border-bottom: 1px solid oklch(0.93 0.006 255);
+  padding: 10px 13px;
+  color: oklch(0.5 0.01 255);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.warnings-panel--national {
+  max-width: none;
+}
+
+.warnings-list--national {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.side-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0;
+  padding: 10px 13px;
+  border-bottom: 1px solid oklch(0.93 0.006 255);
+}
+
+.side-section__header span {
+  min-width: 24px;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: oklch(0.95 0.012 255);
+  color: oklch(0.42 0.012 255);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.warnings-list,
+.location-list {
+  display: grid;
+  gap: 0;
+}
+
+.warning-row,
+.location-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid oklch(0.95 0.005 255);
+  border-radius: 0;
+  padding: 9px 13px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.warning-row {
+  gap: 9px;
+}
+
+.warning-row__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.warning-row__area,
+.location-row span:nth-child(2) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.warning-row strong,
+.location-row strong {
+  overflow: hidden;
+  color: oklch(0.28 0.012 255);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warning-row small,
+.location-row small,
+.empty-copy {
+  color: oklch(0.55 0.01 255);
+  font-size: 11.5px;
+}
+
+.warning-row__arrow {
+  color: oklch(0.62 0.01 255);
+  font-size: 11px;
+}
+
+.empty-copy {
+  margin: 0;
+}
+
+.selected-card {
+  display: grid;
+  gap: 4px;
+}
+
+.selected-card__type {
+  color: oklch(0.56 0.012 255);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.district-view {
+  display: grid;
+  gap: 14px;
+}
+
+.district-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.district-header h1 {
+  margin: 0;
+  color: oklch(0.22 0.014 255);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.district-header > p {
+  margin: 0;
+  color: oklch(0.5 0.01 255);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+
+.back-button {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid oklch(0.88 0.008 255);
+  border-radius: 7px;
+  padding: 6px 12px 6px 9px;
+  background: #fff;
+  color: oklch(0.50 0.12 255);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.back-button span {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.location-row {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.location-row__warn {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+
+.location-row__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: oklch(0.96 0.012 220);
+  color: oklch(0.48 0.06 220);
+  font-size: 13px;
+}
+
+.location-row__temp {
+  flex: none;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 15.5px;
+}
+
+.location-row__temp strong {
+  color: oklch(0.58 0.18 35);
+  font-size: 15.5px;
+}
+
+.location-row__temp em {
+  color: oklch(0.78 0.01 255);
+  font-style: normal;
+}
+
+.location-row__arrow {
+  flex: none;
+  color: oklch(0.58 0.01 255);
+  font-size: 13px;
+}
+
+@media (max-width: 920px) {
+  .maps-hero,
+  .panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .maps-updated,
+  .district-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .warnings-list--national {
+    grid-template-columns: 1fr;
+  }
+
+  .map-frame {
+    flex-direction: column;
+    align-items: center;
+    min-height: 300px;
+    padding-inline: 8px;
+  }
+
+  .map-frame--expanded {
+    min-height: 620px;
+  }
+
+  .map-expand-button {
+    top: 8px;
+    right: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .maps-page {
+    gap: 14px;
+  }
+}
