@@ -8,9 +8,7 @@ import {
   mapboxTempColorStops,
 } from '~/utils/mapColors'
 import { CAPITALS, SEA_POINTS, iconSvg, isNowDaytime } from '~/utils/maps'
-import { normalizeLevel, isWarningActive } from '~/utils/transform'
-import { levelRank } from '~/utils/colors'
-import { locationHref } from '#shared/slug'
+import { districtWarningEntries, latestStationTemperatures } from '~/utils/mapDerived'
 
 const props = defineProps<{
   layer: MapLayer
@@ -37,29 +35,8 @@ let popup: Popup | null = null
 const locationForecastCache = new Map<number, { tmax: number | null; wt: number | null }>()
 let forecastFetchTimer: ReturnType<typeof setTimeout> | null = null
 
-// --- district warnings computed (same logic as WeatherMapsPage) ---
-
 const districtWarnings = computed<Record<string, { type: string; level: string }>>(() => {
-  const result: Record<string, { type: string; level: string }> = {}
-  const districtAreaId = new Map<number, string>()
-  for (const loc of locations.value) {
-    if (!districtAreaId.has(loc.districtID)) districtAreaId.set(loc.districtID, loc.warningAreaID)
-  }
-  const now = new Date()
-  for (const [districtId, areaId] of districtAreaId) {
-    const district = districtMap.value.get(districtId)
-    if (!district) continue
-    const active = (warningsByArea.value.get(areaId) ?? []).filter(w => {
-      const level = normalizeLevel(w)
-      return level !== 'green' && isWarningActive(w, now)
-    })
-    if (!active.length) continue
-    const top = active.reduce((best, w) =>
-      levelRank(normalizeLevel(w)) > levelRank(normalizeLevel(best)) ? w : best
-    )
-    result[district.name] = { type: top.awarenessTypeName, level: normalizeLevel(top) }
-  }
-  return result
+  return districtWarningEntries(locations.value, districtMap.value, warningsByArea.value)
 })
 
 // approximate per-location temperature (district capital's tmax) used only to color
@@ -116,13 +93,8 @@ function buildDistrictDataGeoJSON(): GeoJSON.FeatureCollection {
 
 function buildObsGeoJSON(): GeoJSON.FeatureCollection {
   const stationMap = new Map(stations.value.map(s => [s.id, s]))
-  const latest = new Map<number, number>()
-  const sorted = [...observations.value].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-  for (const obs of sorted) {
-    if (!latest.has(obs.stationID) && obs.temperature != null) latest.set(obs.stationID, obs.temperature)
-  }
   const features: GeoJSON.Feature[] = []
-  for (const [id, temp] of latest) {
+  for (const [id, temp] of latestStationTemperatures(observations.value)) {
     const s = stationMap.get(id)
     if (!s) continue
     features.push({
@@ -157,7 +129,6 @@ function buildLocationsGeoJSON(): GeoJSON.FeatureCollection {
         properties: {
           id: loc.id,
           name: loc.name,
-          href: locationHref(loc.id, loc.name),
           tempLabel: hasForecast ? `${fc.tmax}°` : '',
           tempTextColor: hasForecast ? mapboxTempTextColor(fc.tmax!) : '#1e2a3a',
           iconId: hasForecast && fc.wt != null ? weatherIconId(fc.wt, isNowDaytime()) : '',
@@ -183,22 +154,28 @@ async function fetchVisibleLocationForecasts() {
     features = map.queryRenderedFeatures({ layers: ['loc-points'] })
   } catch { return }
 
-  const missingIds = [...new Set(
+  const idsToFetch = [...new Set(
     features
       .map(f => f.properties?.id as number | undefined)
       .filter((id): id is number => id != null && !locationForecastCache.has(id))
-  )]
-  if (!missingIds.length) return
+  )].slice(0, 80)
+  if (!idsToFetch.length) return
 
   // mark as pending immediately so a second pan/zoom before the response lands doesn't re-fetch
-  for (const id of missingIds) locationForecastCache.set(id, { tmax: null, wt: null })
+  for (const id of idsToFetch) locationForecastCache.set(id, { tmax: null, wt: null })
 
   try {
     const batch = await $fetch<{ id: string; tmax: number | null; wt: number | null }[]>('/api/map-forecast-batch', {
-      query: { ids: missingIds.join(',') },
+      query: { ids: idsToFetch.join(',') },
     })
+    const returnedIds = new Set<number>()
     for (const entry of batch) {
-      locationForecastCache.set(Number(entry.id), { tmax: entry.tmax, wt: entry.wt })
+      const id = Number(entry.id)
+      returnedIds.add(id)
+      locationForecastCache.set(id, { tmax: entry.tmax, wt: entry.wt })
+    }
+    for (const id of idsToFetch) {
+      if (!returnedIds.has(id)) locationForecastCache.delete(id)
     }
     if (mapReady.value) {
       (map.getSource('locations') as GeoJSONSource | undefined)?.setData(buildLocationsGeoJSON())
@@ -206,7 +183,7 @@ async function fetchVisibleLocationForecasts() {
   } catch {
     // drop the pending placeholders so a later pan/zoom retries these ids instead of
     // treating the failed fetch as a permanent "no forecast" result
-    for (const id of missingIds) locationForecastCache.delete(id)
+    for (const id of idsToFetch) locationForecastCache.delete(id)
   }
 }
 
@@ -219,6 +196,7 @@ function buildCapitalsGeoJSON(): GeoJSON.FeatureCollection {
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [fc.lon, fc.lat] },
       properties: {
+        id: fc.id,
         name: fc.name,
         district: fc.district,
         tmax: fc.tmax,
@@ -239,7 +217,7 @@ function buildSeaGeoJSON(): GeoJSON.FeatureCollection {
     features: SEA_POINTS.map(pt => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [pt.lon, pt.lat] },
-      properties: { name: pt.name, h: pt.h, dir: pt.dir, color: mapboxWaveColor(pt.h), label: `${pt.h}m` },
+      properties: { name: pt.name, h: pt.h, dir: pt.dir, period: pt.period, color: mapboxWaveColor(pt.h), label: `${pt.h}m` },
     })),
   }
 }
@@ -727,6 +705,13 @@ function initInteractions() {
     })
   }
 
+  map!.on('click', 'capitals-uv-circles', (e) => {
+    const feat = e.features?.[0]
+    if (!feat) return
+    const p = feat.properties!
+    emit('pick', { kind: 'location', id: String(p.id), name: p.name as string })
+  })
+
   // Cursor pointers
   const clickable = ['loc-clusters', 'loc-points', 'loc-icons', 'obs-circles', 'sea-circles', 'capitals-uv-circles']
   for (const layer of clickable) {
@@ -742,7 +727,7 @@ function initInteractions() {
     const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
     popup!
       .setLngLat(coords)
-      .setHTML(stationPopupHtml(p.stationName, p.temperature, p.color))
+      .setDOMContent(stationPopupNode(p.stationName, p.temperature, p.color))
       .addTo(map!)
   })
   map!.on('mouseleave', 'obs-circles', () => popup!.remove())
@@ -755,7 +740,7 @@ function initInteractions() {
     const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
     popup!
       .setLngLat(coords)
-      .setHTML(capitalPopupHtml(p))
+      .setDOMContent(capitalPopupNode(p))
       .addTo(map!)
   })
   map!.on('mouseleave', 'capitals-uv-circles', () => popup!.remove())
@@ -767,12 +752,9 @@ function initInteractions() {
       if (!feat) return
       const p = feat.properties!
       const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
-      const tempHtml = p.tempLabel
-        ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${p.tempTextColor};margin-left:6px;">${p.tempLabel}</span>`
-        : ''
       popup!
         .setLngLat(coords)
-        .setHTML(`<div style="font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:5px 8px;font-weight:600;color:#1e2a3a;">${p.name}${tempHtml}</div>`)
+        .setDOMContent(locationPopupNode(p.name, p.tempLabel, p.tempTextColor))
         .addTo(map!)
     })
     map!.on('mouseleave', layer, () => popup!.remove())
@@ -786,43 +768,124 @@ function initInteractions() {
     const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
     popup!
       .setLngLat(coords)
-      .setHTML(seaPopupHtml(p))
+      .setDOMContent(seaPopupNode(p))
       .addTo(map!)
   })
   map!.on('mouseleave', 'sea-circles', () => popup!.remove())
 }
 
-// --- Popup HTML helpers ---
+// --- Popup DOM helpers ---
 
-function stationPopupHtml(name: string, temp: number | null, color: string) {
-  const tempHtml = temp != null
-    ? `<div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:${color};margin-top:2px;">${temp}°</div>`
-    : ''
-  return `<div style="font-family:'IBM Plex Sans',sans-serif;padding:6px 10px;">
-    <div style="font-size:12px;font-weight:600;color:#1e2a3a;">${name}</div>
-    ${tempHtml}
-  </div>`
+function popupRoot() {
+  const root = document.createElement('div')
+  root.style.fontFamily = "'IBM Plex Sans', sans-serif"
+  root.style.padding = '6px 10px'
+  return root
 }
 
-function capitalPopupHtml(p: Record<string, unknown>) {
+function popupTitle(text: unknown, weight = '600') {
+  const title = document.createElement('div')
+  title.textContent = String(text ?? '')
+  title.style.fontSize = '12px'
+  title.style.fontWeight = weight
+  title.style.color = '#1e2a3a'
+  return title
+}
+
+function stationPopupNode(name: unknown, temp: unknown, color: unknown) {
+  const root = popupRoot()
+  root.append(popupTitle(name))
+  if (temp != null) {
+    const value = document.createElement('div')
+    value.textContent = `${temp}°`
+    value.style.fontFamily = "'IBM Plex Mono', monospace"
+    value.style.fontSize = '16px'
+    value.style.fontWeight = '600'
+    value.style.color = String(color ?? '#1e2a3a')
+    value.style.marginTop = '2px'
+    root.append(value)
+  }
+  return root
+}
+
+function capitalPopupNode(p: Record<string, unknown>) {
   const tmax = p.tmax as number | null
   const tmin = p.tmin as number | null
   const uv = p.uv as number | null
   const color = p.tempColor as string
-  return `<div style="font-family:'IBM Plex Sans',sans-serif;padding:6px 10px;">
-    <div style="font-size:12px;font-weight:700;color:#1e2a3a;margin-bottom:3px;">${p.name}</div>
-    ${tmax != null ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:${color};">${tmax}°</span>` : ''}
-    ${tmin != null ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5a6a7a;margin-left:4px;">/ ${tmin}°</span>` : ''}
-    ${uv != null ? `<div style="font-size:11px;color:#5a6a7a;margin-top:2px;">UV ${uv}</div>` : ''}
-  </div>`
+  const root = popupRoot()
+  const title = popupTitle(p.name, '700')
+  title.style.marginBottom = '3px'
+  root.append(title)
+  if (tmax != null) {
+    const max = document.createElement('span')
+    max.textContent = `${tmax}°`
+    max.style.fontFamily = "'IBM Plex Mono', monospace"
+    max.style.fontSize = '15px'
+    max.style.fontWeight = '600'
+    max.style.color = color
+    root.append(max)
+  }
+  if (tmin != null) {
+    const min = document.createElement('span')
+    min.textContent = `/ ${tmin}°`
+    min.style.fontFamily = "'IBM Plex Mono', monospace"
+    min.style.fontSize = '12px'
+    min.style.color = '#5a6a7a'
+    min.style.marginLeft = '4px'
+    root.append(min)
+  }
+  if (uv != null) {
+    const uvLine = document.createElement('div')
+    uvLine.textContent = `UV ${uv}`
+    uvLine.style.fontSize = '11px'
+    uvLine.style.color = '#5a6a7a'
+    uvLine.style.marginTop = '2px'
+    root.append(uvLine)
+  }
+  return root
 }
 
-function seaPopupHtml(p: Record<string, unknown>) {
-  return `<div style="font-family:'IBM Plex Sans',sans-serif;padding:6px 10px;">
-    <div style="font-size:12px;font-weight:700;color:#1e2a3a;margin-bottom:2px;">${p.name}</div>
-    <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:${p.color};">${p.h}m</div>
-    <div style="font-size:11px;color:#5a6a7a;">${p.dir} · ${p.period}s</div>
-  </div>`
+function locationPopupNode(name: unknown, tempLabel: unknown, tempTextColor: unknown) {
+  const root = popupRoot()
+  root.style.fontSize = '13px'
+  root.style.padding = '5px 8px'
+  root.style.fontWeight = '600'
+  root.style.color = '#1e2a3a'
+  root.append(document.createTextNode(String(name ?? '')))
+  if (tempLabel) {
+    const temp = document.createElement('span')
+    temp.textContent = String(tempLabel)
+    temp.style.fontFamily = "'IBM Plex Mono', monospace"
+    temp.style.fontSize = '13px'
+    temp.style.fontWeight = '600'
+    temp.style.color = String(tempTextColor ?? '#1e2a3a')
+    temp.style.marginLeft = '6px'
+    root.append(temp)
+  }
+  return root
+}
+
+function seaPopupNode(p: Record<string, unknown>) {
+  const root = popupRoot()
+  const title = popupTitle(p.name, '700')
+  title.style.marginBottom = '2px'
+  root.append(title)
+
+  const height = document.createElement('div')
+  height.textContent = `${p.h}m`
+  height.style.fontFamily = "'IBM Plex Mono', monospace"
+  height.style.fontSize = '14px'
+  height.style.fontWeight = '600'
+  height.style.color = String(p.color ?? '#1e2a3a')
+  root.append(height)
+
+  const details = document.createElement('div')
+  details.textContent = `${p.dir ?? ''} · ${p.period ?? ''}s`
+  details.style.fontSize = '11px'
+  details.style.color = '#5a6a7a'
+  root.append(details)
+  return root
 }
 
 // --- Reactive updates ---
@@ -877,6 +940,16 @@ watch(
     if (group === 'madeira') { map!.flyTo({ center: [-16.9, 32.65], zoom: 10, duration: 600 }); return }
     if (group === 'azores') { map!.flyTo({ center: [-27.2, 38.6], zoom: 7, duration: 600 }); return }
     map!.flyTo({ center: [-8.2, 39.5], zoom: 6.3, duration: 600 })
+  },
+)
+
+watch(
+  () => props.height,
+  () => {
+    if (!mapReady.value || !map) return
+    nextTick(() => {
+      map?.resize()
+    })
   },
 )
 

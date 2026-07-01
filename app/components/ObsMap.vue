@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Map, GeoJSONSource } from 'mapbox-gl'
 import { mapboxTempColor, mapboxAccentColor, mapboxObsValueColor } from '~/utils/mapColors'
+import { nearestObservationStations } from '~/utils/mapDerived'
 
 const props = defineProps<{
   center: { lat: number; lon: number }
@@ -18,27 +19,9 @@ const mapReady = ref(false)
 
 let map: Map | null = null
 
-// Compute nearest stations with their latest temperature
 const nearestObs = computed(() => {
-  const stationMap = new Map(stations.value.map(s => [s.id, s]))
-  const latest = new Map<number, number>()
-  const sorted = [...observations.value].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-  for (const obs of sorted) {
-    if (!latest.has(obs.stationID) && obs.temperature != null) latest.set(obs.stationID, obs.temperature)
-  }
-
   const max = props.maxStations ?? 5
-  return [...latest.entries()]
-    .map(([id, temp]) => {
-      const s = stationMap.get(id)
-      if (!s) return null
-      const dlat = s.latitude - props.center.lat
-      const dlon = s.longitude - props.center.lon
-      return { id, name: s.name, lat: s.latitude, lon: s.longitude, temp, dist: dlat * dlat + dlon * dlon }
-    })
-    .filter(Boolean)
-    .sort((a, b) => a!.dist - b!.dist)
-    .slice(0, max) as { id: number; name: string; lat: number; lon: number; temp: number; dist: number }[]
+  return nearestObservationStations(stations.value, observations.value, props.center, max)
 })
 
 function buildGeoJSON(): GeoJSON.FeatureCollection {
@@ -156,10 +139,7 @@ onMounted(async () => {
       const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
       popup
         .setLngLat(coords)
-        .setHTML(`<div style="font-family:'IBM Plex Sans',sans-serif;padding:5px 8px;">
-          <div style="font-size:12px;font-weight:600;color:#1e2a3a;margin-bottom:2px;">${p.stationName}</div>
-          ${p.temperature != null ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:${p.color};">${p.temperature}°</span>` : ''}
-        </div>`)
+        .setDOMContent(stationPopupNode(p.stationName, p.temperature, p.color))
         .addTo(map!)
     })
     map!.on('mouseleave', 'obs-mini-circles', () => {
@@ -197,6 +177,32 @@ watch(
   },
   { deep: false },
 )
+
+function stationPopupNode(name: unknown, temperature: unknown, color: unknown) {
+  const root = document.createElement('div')
+  root.style.fontFamily = "'IBM Plex Sans', sans-serif"
+  root.style.padding = '5px 8px'
+
+  const title = document.createElement('div')
+  title.textContent = String(name ?? '')
+  title.style.fontSize = '12px'
+  title.style.fontWeight = '600'
+  title.style.color = '#1e2a3a'
+  title.style.marginBottom = '2px'
+  root.append(title)
+
+  if (temperature != null) {
+    const value = document.createElement('span')
+    value.textContent = `${temperature}°`
+    value.style.fontFamily = "'IBM Plex Mono', monospace"
+    value.style.fontSize = '15px'
+    value.style.fontWeight = '600'
+    value.style.color = String(color ?? '#1e2a3a')
+    root.append(value)
+  }
+
+  return root
+}
 </script>
 
 <template>

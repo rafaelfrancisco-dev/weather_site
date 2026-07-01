@@ -100,7 +100,8 @@ export const SEA_POINTS: SeaPoint[] = [
   { id: 's_acores_e', name: 'Grupo Oriental', group: 'azores', lat: 37.74, lon: -25.50, h: 3.8, dir: 'NW', period: 12 },
 ]
 
-// Static fire risk per district (1=Reduced … 5=Maximum)
+// Static reference fire-risk values per district (1=Reduced … 5=Maximum).
+// Replace with live IPMA risk data before presenting this as the current daily risk.
 export const FIRE: Record<string, number> = {
   'Viana do Castelo': 2, 'Braga': 2, 'Porto': 2, 'Aveiro': 2,
   'Vila Real': 4, 'Bragança': 4, 'Viseu': 3, 'Guarda': 4,

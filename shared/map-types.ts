@@ -19,22 +19,13 @@ export interface FcPoint {
   uv: number | null
 }
 
-export interface ObsPoint {
-  id: number | string
-  name: string
-  group: MapGroup
-  lat: number
-  lon: number
-  temp: number | null
-}
-
 export interface WarnEntry {
   type: string
   level: string
 }
 
 export interface MapPick {
-  kind: 'location' | 'sea'
+  kind: 'location'
   id: string
   name: string
 }

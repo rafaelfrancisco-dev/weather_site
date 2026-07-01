@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { districtHref, districtSlugMatches, locationHref } from '#shared/slug'
-import type { FcPoint, MapFocus, MapGroup, MapLayer, MapPick, ObsPoint, WarnEntry } from '#shared/map-types'
+import type { FcPoint, MapFocus, MapGroup, MapLayer, MapPick, WarnEntry } from '#shared/map-types'
 import { strings } from '~/utils/i18n'
-import { accentColors, fireColor, levelColor, levelRank, levelSoft, tempColor, tempFill, uvColor, waveFill } from '~/utils/colors'
+import { accentColors, fireColor, levelColor, levelRank, tempFill, uvColor, waveFill } from '~/utils/colors'
 import type { WarningLevel } from '~/utils/colors'
 import { dateTimeLabel } from '~/utils/format'
-import { isWarningActive, normalizeLevel, regionLabel } from '~/utils/transform'
-import { CAPITALS, FIRE, SEA_POINTS, geoGroup, iconSvg, isNowDaytime } from '~/utils/maps'
+import { regionLabel } from '~/utils/transform'
+import { CAPITALS, FIRE, iconSvg, isNowDaytime } from '~/utils/maps'
+import { districtWarningEntries } from '~/utils/mapDerived'
 
 interface LayerDef {
   id: MapLayer
@@ -37,71 +38,22 @@ const t = computed(() => strings(lang.value))
 const c = computed(() => accentColors(settings.value.accent))
 
 const activeLayer = ref<MapLayer>('forecast')
-const selectedPick = ref<MapPick | null>(null)
 const focus = ref<MapFocus | null>(null)
 const districtMapExpanded = ref(false)
 
 const {
   locations,
-  stations,
   observations,
   warningsByArea,
   districtMap,
   bootstrapped,
 } = useLocationsData()
 
-const { data: rawForecast, pending: fcPending } = useFetch<FcPoint[]>('/api/map-forecast')
+const { data: rawForecast } = useFetch<FcPoint[]>('/api/map-forecast')
 const forecastData = computed<FcPoint[]>(() => rawForecast.value ?? [])
 
-const latestTempByStation = computed(() => {
-  const map = new Map<number, number>()
-  const sorted = [...observations.value].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-  for (const obs of sorted) {
-    if (!map.has(obs.stationID) && obs.temperature != null) map.set(obs.stationID, obs.temperature)
-  }
-  return map
-})
-
-const obsPoints = computed<ObsPoint[]>(() =>
-  stations.value
-    .filter(station => latestTempByStation.value.has(station.id))
-    .map(station => ({
-      id: station.id,
-      name: station.name,
-      group: geoGroup(station.latitude, station.longitude),
-      lat: station.latitude,
-      lon: station.longitude,
-      temp: latestTempByStation.value.get(station.id) ?? null,
-    }))
-)
-
 const districtWarnings = computed<Record<string, WarnEntry>>(() => {
-  const result: Record<string, WarnEntry> = {}
-  const districtAreaId = new Map<number, string>()
-  for (const loc of locations.value) {
-    if (!districtAreaId.has(loc.districtID)) districtAreaId.set(loc.districtID, loc.warningAreaID)
-  }
-
-  for (const [districtId, areaId] of districtAreaId) {
-    const district = districtMap.value.get(districtId)
-    if (!district) continue
-
-    const active = (warningsByArea.value.get(areaId) ?? []).filter(w => isWarningActive(w))
-    let topLevel: WarningLevel = 'green'
-    let topRank = 0
-    let topType = ''
-    for (const warning of active) {
-      const level = normalizeLevel(warning)
-      const rank = levelRank(level)
-      if (rank > topRank) {
-        topRank = rank
-        topLevel = level
-        topType = warning.awarenessTypeName
-      }
-    }
-    if (topRank > 1) result[district.name] = { type: topType, level: topLevel }
-  }
-  return result
+  return districtWarningEntries(locations.value, districtMap.value, warningsByArea.value)
 })
 
 const layerDefs = computed<LayerDef[]>(() => [
@@ -142,7 +94,7 @@ const layerDefs = computed<LayerDef[]>(() => [
     label: t.value.mapFire,
     swatchColor: 'oklch(0.57 0.20 30)',
     unit: '1-5',
-    hint: lang.value === 'pt' ? 'Risco diário por distrito.' : 'Daily district fire risk.',
+    hint: lang.value === 'pt' ? 'Escala estática de referência por distrito.' : 'Static reference scale by district.',
     legendTitle: lang.value === 'pt' ? 'Risco de incêndio' : 'Fire risk',
     legendStops: [
       { label: '1', color: fireColor(1) },
@@ -172,7 +124,7 @@ const layerDefs = computed<LayerDef[]>(() => [
     label: t.value.mapSea,
     swatchColor: 'oklch(0.52 0.14 252)',
     unit: 'm',
-    hint: lang.value === 'pt' ? 'Altura significativa da ondulação.' : 'Significant wave height.',
+    hint: lang.value === 'pt' ? 'Pontos costeiros de referência.' : 'Reference coastal points.',
     legendTitle: lang.value === 'pt' ? 'Altura de onda' : 'Wave height',
     legendStops: [
       { label: '1m', color: waveFill(1) },
@@ -287,7 +239,6 @@ function groupLabel(group: MapGroup): string {
 
 function setLayer(nextLayer: MapLayer) {
   activeLayer.value = nextLayer
-  selectedPick.value = null
 }
 
 // Derive district group from the CAPITALS list (replaces PT_GEO lookup)
@@ -305,7 +256,6 @@ function districtForSlug(slug: string): { name: string; group: MapGroup } | null
 
 function openDistrict(name: string, group?: MapGroup) {
   focus.value = { group: group ?? districtGroupFor(name), district: name }
-  selectedPick.value = null
   districtMapExpanded.value = false
   const nextPath = districtHref(name)
   if (route.path !== nextPath) router.push(nextPath)
@@ -313,13 +263,11 @@ function openDistrict(name: string, group?: MapGroup) {
 
 function closeDistrict() {
   focus.value = null
-  selectedPick.value = null
   districtMapExpanded.value = false
   if (route.path !== '/maps') router.push('/maps')
 }
 
 function handlePick(pick: MapPick) {
-  selectedPick.value = pick
   if (pick.kind === 'location' && (activeLayer.value === 'forecast' || activeLayer.value === 'uv')) {
     const id = Number(pick.id)
     if (Number.isFinite(id)) router.push(locationHref(id, pick.name))
@@ -354,14 +302,12 @@ function legendTextColor(index: number) {
 watch(routeDistrictSlug, (slug) => {
   if (!slug) {
     focus.value = null
-    selectedPick.value = null
     districtMapExpanded.value = false
     return
   }
   const found = districtForSlug(slug)
   if (!found) {
     focus.value = null
-    selectedPick.value = null
     districtMapExpanded.value = false
     return
   }
@@ -369,7 +315,6 @@ watch(routeDistrictSlug, (slug) => {
     districtMapExpanded.value = false
   }
   focus.value = { group: found.group, district: found.name }
-  selectedPick.value = null
 }, { immediate: true })
 
 useSeoMeta({ title: 'Weather maps - MET·PT' })
