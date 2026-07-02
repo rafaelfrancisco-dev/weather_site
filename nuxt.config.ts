@@ -81,6 +81,16 @@ export default defineNuxtConfig({
   // `isr: <seconds>` (not the legacy `cache: { swr, maxAge }` shorthand) is
   // what Nitro's vercel preset actually maps to a real ISR expiration —
   // the legacy shorthand silently drops maxAge and never time-based-revalidates.
+  //
+  // /location/**, /api/warnings, /maps, /maps/** are pinned to 3600 (not a
+  // shorter window) on purpose: every Vercel deployment resets the ISR cache
+  // for all routes, and this project deploys often, so a short isr window
+  // multiplies Vercel ISR write volume fast across the ~300+ per-location
+  // paths. /location/** and /maps/** also SSR-render warnings data (banner,
+  // sidebar dots, fire-risk layer), so their isr window is intentionally
+  // matched to cachedWarnings' maxAge (server/utils/ipma.ts) — warnings
+  // freshness is capped at 1h as a deliberate cost/freshness tradeoff.
+  // Don't shorten these without reconsidering the write-volume impact.
   routeRules: {
     // Baseline security headers on every response. The CSP ships as
     // Report-Only for now: it surfaces violations in the console/reports
@@ -99,16 +109,16 @@ export default defineNuxtConfig({
         'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://www.ipma.pt https://api.mapbox.com; worker-src 'self' blob:; child-src blob:; connect-src 'self' https://api.mapbox.com https://events.mapbox.com; base-uri 'self'; form-action 'self'"
       }
     },
-    '/location/**': { isr: 600 },
+    '/location/**': { isr: 3600 },
     '/api/locations': { isr: 86400 },
     '/api/districts': { isr: 86400 },
     '/api/weather-types': { isr: 86400 },
-    '/api/warnings': { isr: 600 },
+    '/api/warnings': { isr: 3600 },
     '/api/observations': { isr: 3600 },
     '/api/forecast/**': { isr: 3600 },
     '/api/map-forecast': { isr: 3600 },
-    '/maps': { isr: 600 },
-    '/maps/**': { isr: 600 }
+    '/maps': { isr: 3600 },
+    '/maps/**': { isr: 3600 }
   },
   modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vercel/analytics', '@vercel/speed-insights']
 })

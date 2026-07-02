@@ -34,9 +34,15 @@ export const cachedWeatherTypes = defineCachedFunction(
   { name: 'ipma', getKey: () => 'weather-types', maxAge: 86400 }
 )
 
+// maxAge matches cachedForecast/cachedObservations (3600) rather than a
+// tighter window: /location/** and /maps/** SSR-render warnings data and
+// use this same 3600 figure for their `isr` route rules (nuxt.config.ts),
+// so warnings freshness is intentionally capped at 1h to keep those pages'
+// ISR regeneration frequency (and Vercel ISR write volume) down. Don't
+// shorten this without also reconsidering those isr windows.
 export const cachedWarnings = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).weatherWarnings(),
-  { name: 'ipma', getKey: () => 'warnings', maxAge: 600 }
+  { name: 'ipma', getKey: () => 'warnings', maxAge: 3600 }
 )
 
 export const cachedStations = defineCachedFunction(
