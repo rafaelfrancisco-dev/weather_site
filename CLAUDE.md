@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev` — start dev server (`http://localhost:3000`)
 - `npm run build` — production build; **use this to validate TypeScript compiles**, since `npx nuxi typecheck` is currently broken in this repo (`@nuxt/devtools` fails to dynamically import vite during `loadNuxt`)
 - `npm run generate` / `npm run preview` — static generate / preview a production build locally
-- There is no test suite in this repo (no test files, no vitest config) despite a vitest skill being available under `.agents/skills/`
+- `npm test` — runs the Vitest unit suite (`vitest.config.ts`, tests under `tests/unit/**/*.spec.ts`) against the pure transform/util modules (`app/utils/*Transform.ts`, `colors.ts`, `shared/slug.ts`). Runs with `TZ=Europe/Lisbon` since date/weekday formatting in those modules is local-time-based. Component/composable behavior is not covered — verify UI changes manually per the guidance below.
 
 ### Install quirk
 

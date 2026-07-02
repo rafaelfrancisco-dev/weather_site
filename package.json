@@ -10,10 +10,10 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "test": "TZ=Europe/Lisbon vitest run"
   },
   "dependencies": {
-    "mapbox-gl": "^3",
     "@nuxtjs/google-fonts": "^3.2.0",
     "@nuxtjs/seo": "^5.3.0",
     "@rafaelfrancisco-dev/ipma-weather-js": "^0.1.1",
@@ -21,6 +21,7 @@
     "@vercel/speed-insights": "^2.0.1-canary",
     "@vueuse/nuxt": "^14.3.0",
     "ioredis": "^5.4.1",
+    "mapbox-gl": "^3",
     "nuxt": "^4.4.8",
     "vite": "^7.3.5",
     "vue": "^3.5.35",
@@ -37,5 +38,8 @@
       "vue-router": "$vue-router"
     },
     "esbuild": "^0.28.1"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
   }
 }
