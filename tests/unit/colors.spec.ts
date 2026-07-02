@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  mapboxWarningHaloColor,
+  mapboxWarningTextColor,
+} from '~/utils/mapColors'
+import {
   accentColors,
   fireColor,
   levelColor,
@@ -75,6 +79,17 @@ describe('warning level lookups', () => {
   it('localizes level labels', () => {
     expect(levelLabelTxt('red', 'en')).toBe('Red')
     expect(levelLabelTxt('red', 'pt')).toBe('Vermelho')
+  })
+
+  it('keeps Mapbox warning labels readable against warning fills', () => {
+    expect(mapboxWarningTextColor('yellow')).toBe('#4a3c10')
+    expect(mapboxWarningHaloColor('yellow')).toBe('#ffffff')
+
+    for (const level of ['green', 'orange', 'red'] as const) {
+      expect(mapboxWarningTextColor(level)).toBe('#ffffff')
+      expect(mapboxWarningHaloColor(level)).not.toBe('#ffffff')
+      expect(mapboxWarningHaloColor(level)).toMatch(/^rgba\(/)
+    }
   })
 })
 

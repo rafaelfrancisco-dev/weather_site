@@ -15,6 +15,7 @@ import {
   mapboxTempTextColor,
   mapboxUvColor,
   mapboxUvValueColor,
+  mapboxWarningHaloColor,
   mapboxWarningTextColor,
   mapboxWaveColor,
 } from '~/utils/mapColors'
@@ -49,6 +50,7 @@ export function buildDistrictDataGeoJSON(options: {
         fillColor = level ? mapboxLevelColor(level) : '#f0f0f2'
         labelText = warn?.type ?? ''
         labelColor = level ? mapboxWarningTextColor(level) : '#1e2a3a'
+        labelHalo = level ? mapboxWarningHaloColor(level) : '#ffffff'
       } else if (options.layer === 'fire') {
         const n = options.fireData[name] ?? 0
         fillColor = n > 0 ? mapboxFireColor(n) : '#f0f0f2'

@@ -82,6 +82,10 @@ export function mapboxWarningTextColor(level: 'green' | 'yellow' | 'orange' | 'r
   return level === 'yellow' ? '#4a3c10' : '#ffffff'
 }
 
+export function mapboxWarningHaloColor(level: 'green' | 'yellow' | 'orange' | 'red'): string {
+  return level === 'yellow' ? '#ffffff' : 'rgba(24,32,24,0.58)'
+}
+
 export function mapboxAccentColor(theme: AccentTheme): string {
   if (theme === 'Teal') return '#108080'
   if (theme === 'Slate') return '#4e5e7a'

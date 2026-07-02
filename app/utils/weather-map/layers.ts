@@ -44,17 +44,6 @@ export function initWeatherMapLayers(map: Map, accent: string) {
   })
 
   map.addLayer({
-    id: 'district-stroke',
-    type: 'line',
-    source: 'districts',
-    paint: {
-      'line-color': '#a0a8b8',
-      'line-width': 0.7,
-      'line-opacity': 0.5,
-    },
-  })
-
-  map.addLayer({
     id: 'district-overlay-labels',
     type: 'symbol',
     source: 'districts',
