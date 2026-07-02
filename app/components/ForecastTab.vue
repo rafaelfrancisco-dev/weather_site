@@ -84,7 +84,7 @@ const skeletonHourRows = computed(() => [
                 :key="ci"
                 :style="{ borderBottom: '1px solid oklch(0.94 0.006 255)', borderLeft: cell.sep, background: cell.isCurrent ? `linear-gradient(rgba(78, 92, 112, 0.08), rgba(78, 92, 112, 0.08)), ${cell.bg}` : cell.bg, padding: dens.cellPad, textAlign: 'center', verticalAlign: 'middle' }"
               >
-                <img v-if="cell.isIcon && cell.icon" :src="cell.icon" :title="cell.title" :alt="cell.title" style="width:26px; height:26px; display:block; margin:0 auto;" />
+                <img v-if="cell.isIcon && cell.icon" :src="cell.icon" :title="cell.title" :alt="cell.title" loading="lazy" decoding="async" style="width:26px; height:26px; display:block; margin:0 auto;" />
                 <div v-else-if="cell.isWind" style="display:flex; flex-direction:column; align-items:center; gap:1px;">
                   <span :style="{ display: 'inline-block', fontSize: '14px', lineHeight: '1', color: 'oklch(0.42 0.04 255)', transform: `rotate(${cell.deg}deg)` }">↑</span>
                   <span style="font-size:9px; font-family:'IBM Plex Mono',monospace; color:oklch(0.55 0.01 255);">{{ cell.main }}</span>
@@ -126,7 +126,7 @@ const skeletonHourRows = computed(() => [
           <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch;">
             <div v-for="(hc, ci) in hd.cells" :key="ci" :style="{ flex: 'none', width: '74px', border: hc.isCurrent ? '2px solid oklch(0.65 0.02 255)' : '1px solid oklch(0.9 0.006 255)', borderRadius: '10px', background: hc.isCurrent ? 'oklch(0.93 0.009 255)' : '#fff', padding: hc.isCurrent ? '8px 5px' : '9px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }">
               <span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:oklch(0.5 0.01 255);">{{ hc.time }}</span>
-              <img v-if="hc.icon" :src="hc.icon" :alt="hc.title" :title="hc.title" style="width:30px; height:30px;" />
+              <img v-if="hc.icon" :src="hc.icon" :alt="hc.title" :title="hc.title" loading="lazy" decoding="async" style="width:30px; height:30px;" />
               <span :style="{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '17px', fontWeight: 600, color: hc.tempColor }">{{ hc.temp }}°</span>
               <span :style="{ display: 'flex', alignItems: 'center', gap: '3px', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', color: hc.ppColor }">
                 <span style="width:6px; height:6px; border-radius:50%; background:oklch(0.6 0.13 250);"></span>{{ hc.pp }}%
@@ -183,7 +183,7 @@ const skeletonHourRows = computed(() => [
               </td>
               <td style="padding:5px 8px; border-bottom:1px solid oklch(0.94 0.006 255);">
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <img v-if="d.icon" :src="d.icon" :alt="d.wt" style="width:28px; height:28px; flex:none;" />
+                  <img v-if="d.icon" :src="d.icon" :alt="d.wt" loading="lazy" decoding="async" style="width:28px; height:28px; flex:none;" />
                   <span style="font-size:12px; color:oklch(0.40 0.012 255);">{{ d.wt }}</span>
                 </div>
               </td>
@@ -230,7 +230,7 @@ const skeletonHourRows = computed(() => [
             <div style="font-size:13px; font-weight:600; color:oklch(0.28 0.012 255);">{{ d.dow }}</div>
             <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:oklch(0.55 0.01 255);">{{ d.date }}</div>
           </div>
-          <img v-if="d.icon" :src="d.icon" :alt="d.wt" style="width:30px; height:30px; flex:none;" />
+          <img v-if="d.icon" :src="d.icon" :alt="d.wt" loading="lazy" decoding="async" style="width:30px; height:30px; flex:none;" />
           <div :style="{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11.5px', color: d.precipColor }">
             <span style="width:6px; height:6px; border-radius:50%; background:oklch(0.6 0.13 250); flex:none;"></span>{{ d.precipProb }}%
           </div>

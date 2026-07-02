@@ -52,7 +52,7 @@ export default defineNuxtConfig({
     enabled: false
   },
   schemaOrg: {
-    enabled: false
+    enabled: true
   },
   sitemap: {
     sources: ['/api/__sitemap__/urls'],
@@ -82,16 +82,21 @@ export default defineNuxtConfig({
   // what Nitro's vercel preset actually maps to a real ISR expiration —
   // the legacy shorthand silently drops maxAge and never time-based-revalidates.
   routeRules: {
-    // Baseline security headers on every response. CSP is deliberately absent
-    // for now: mapbox-gl needs worker-src blob: + 'wasm-unsafe-eval' and the
-    // inline-style approach needs style-src 'unsafe-inline', so a CSP should
-    // be drafted and verified on a preview deploy before enabling.
+    // Baseline security headers on every response. The CSP ships as
+    // Report-Only for now: it surfaces violations in the console/reports
+    // without blocking anything, so the policy can be tuned on real traffic
+    // before flipping it to an enforced Content-Security-Policy. Directives:
+    // worker-src/child-src blob: + 'wasm-unsafe-eval' for mapbox-gl v3,
+    // script-src 'unsafe-inline' for Nuxt's window.__NUXT__ payload,
+    // style-src 'unsafe-inline' for the inline-style approach, and the
+    // Google Fonts hosts because googleFonts.download is false.
     '/**': {
       headers: {
         'X-Frame-Options': 'DENY',
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://www.ipma.pt https://api.mapbox.com; worker-src 'self' blob:; child-src blob:; connect-src 'self' https://api.mapbox.com https://events.mapbox.com; base-uri 'self'; form-action 'self'"
       }
     },
     '/location/**': { isr: 600 },

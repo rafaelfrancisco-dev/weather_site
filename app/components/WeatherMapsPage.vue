@@ -181,6 +181,8 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
                   width="24"
                   height="24"
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   style="display:block;"
                 />
                 <span v-else>⌁</span>
