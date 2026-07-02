@@ -1,25 +1,16 @@
 <script setup lang="ts">
-import type { Lang } from '~/utils/i18n'
 import type { AccentTheme } from '~/utils/colors'
 import type { Density } from '~/composables/useSettings'
 
 const props = defineProps<{
   t: Record<string, string>
-  lang: Lang
-  query: string
   mobile: boolean
-  navOpen: boolean
   headerBg: string
-}>()
-
-const emit = defineEmits<{
-  toggleNav: []
-  'update:query': [string]
-  setLang: [Lang]
 }>()
 
 const settings = useSettings()
 const settingsOpen = ref(false)
+const { query, navOpen, toggleNav } = useNavigation()
 
 const accentOptions: AccentTheme[] = ['Institutional blue', 'Teal', 'Slate']
 const densityOptions: Density[] = ['Comfortable', 'Compact']
@@ -29,9 +20,9 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
   <header :style="{ flex: 'none', height: '54px', background: props.headerBg, color: '#fff', display: 'flex', alignItems: 'center', gap: '16px', padding: '0 16px', zIndex: 30, position: 'relative' }">
     <button
       aria-label="Menu"
-      :aria-expanded="props.navOpen"
+      :aria-expanded="navOpen"
       :style="{ display: props.mobile ? 'inline-flex' : 'none', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', marginLeft: '-4px', flex: 'none', border: 'none', background: 'rgba(255,255,255,0.16)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '17px', fontFamily: 'inherit' }"
-      @click="emit('toggleNav')"
+      @click="toggleNav"
     >☰</button>
 
     <div style="display:flex; align-items:baseline; gap:9px;">
@@ -43,28 +34,27 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
 
     <div :style="{ position: 'relative', display: props.mobile ? 'none' : 'flex', alignItems: 'center' }">
       <input
-        :value="props.query"
+        v-model="query"
         :placeholder="props.t.search"
         :aria-label="props.t.search"
         type="search"
         style="width:200px; height:30px; border:none; border-radius:5px; background:rgba(255,255,255,0.14); color:#fff; padding:0 10px 0 30px; font-size:12.5px; font-family:inherit; outline:none;"
-        @input="emit('update:query', ($event.target as HTMLInputElement).value)"
       />
       <span style="position:absolute; left:9px; font-size:13px; opacity:0.7;">⌕</span>
     </div>
 
     <div style="display:flex; border:1px solid rgba(255,255,255,0.28); border-radius:5px; overflow:hidden;">
       <button
-        :aria-pressed="props.lang === 'en'"
+        :aria-pressed="settings.lang === 'en'"
         aria-label="English"
-        :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: props.lang === 'en' ? '#fff' : 'transparent', color: props.lang === 'en' ? props.headerBg : '#fff' }"
-        @click="emit('setLang', 'en')"
+        :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: settings.lang === 'en' ? '#fff' : 'transparent', color: settings.lang === 'en' ? props.headerBg : '#fff' }"
+        @click="settings.lang = 'en'"
       >EN</button>
       <button
-        :aria-pressed="props.lang === 'pt'"
+        :aria-pressed="settings.lang === 'pt'"
         aria-label="Português"
-        :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: props.lang === 'pt' ? '#fff' : 'transparent', color: props.lang === 'pt' ? props.headerBg : '#fff' }"
-        @click="emit('setLang', 'pt')"
+        :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: settings.lang === 'pt' ? '#fff' : 'transparent', color: settings.lang === 'pt' ? props.headerBg : '#fff' }"
+        @click="settings.lang = 'pt'"
       >PT</button>
     </div>
 
@@ -80,10 +70,10 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
         v-if="settingsOpen"
         style="position:absolute; right:0; top:38px; width:230px; background:#fff; color:oklch(0.24 0.012 255); border-radius:8px; box-shadow:0 8px 30px rgba(20,28,40,0.25); padding:14px; font-size:12.5px; z-index:50;"
       >
-        <div style="font-weight:600; margin-bottom:8px;">{{ props.lang === 'pt' ? 'Aparência' : 'Appearance' }}</div>
+        <div style="font-weight:600; margin-bottom:8px;">{{ settings.lang === 'pt' ? 'Aparência' : 'Appearance' }}</div>
 
         <div style="margin-bottom:10px;">
-          <div style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">{{ props.lang === 'pt' ? 'Cor de destaque' : 'Accent' }}</div>
+          <div style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">{{ settings.lang === 'pt' ? 'Cor de destaque' : 'Accent' }}</div>
           <div style="display:flex; gap:6px;">
             <button
               v-for="opt in accentOptions"
@@ -95,7 +85,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
         </div>
 
         <div style="margin-bottom:10px;">
-          <div style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">{{ props.lang === 'pt' ? 'Densidade' : 'Density' }}</div>
+          <div style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">{{ settings.lang === 'pt' ? 'Densidade' : 'Density' }}</div>
           <div style="display:flex; gap:6px;">
             <button
               v-for="opt in densityOptions"
@@ -108,7 +98,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
 
         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
           <input type="checkbox" :checked="settings.hourlyBars" @change="settings.hourlyBars = ($event.target as HTMLInputElement).checked" />
-          {{ props.lang === 'pt' ? 'Barras de precipitação' : 'Hourly precip bars' }}
+          {{ settings.lang === 'pt' ? 'Barras de precipitação' : 'Hourly precip bars' }}
         </label>
       </div>
     </div>

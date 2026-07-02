@@ -5,8 +5,7 @@ import { buildLocationTree } from '~/utils/transform'
 import { parseLocationId } from '#shared/slug'
 
 const route = useRoute()
-const query = ref('')
-const navOpen = ref(false)
+const { query } = useNavigation()
 const open = ref<Record<string, boolean>>({})
 
 const { mobile } = useViewport()
@@ -37,19 +36,10 @@ const tree = computed(() => buildLocationTree(
   settings.value.lang
 ))
 
-function toggleNav() {
-  navOpen.value = !navOpen.value
-}
-function closeNav() {
-  navOpen.value = false
-}
 function toggleRegion(id: string) {
   const group = tree.value.find(g => g.id === id)
   const currentlyOpen = group ? group.open : false
   open.value = { ...open.value, [id]: !currentlyOpen }
-}
-function setLang(l: 'en' | 'pt') {
-  settings.value.lang = l
 }
 
 useHead({
@@ -68,14 +58,8 @@ useHead({
   <div v-else style="display:flex; flex-direction:column; height:100vh; overflow:hidden;">
     <AppHeader
       :t="t"
-      :lang="settings.lang"
-      :query="query"
       :mobile="mobile"
-      :nav-open="navOpen"
       :header-bg="c.headerBg"
-      @toggle-nav="toggleNav"
-      @update:query="query = $event"
-      @set-lang="setLang"
     />
 
     <div style="flex:1; display:flex; min-height:0; position:relative;">
@@ -83,13 +67,9 @@ useHead({
         :tree="tree"
         :t="t"
         :mobile="mobile"
-        :nav-open="navOpen"
-        :query="query"
         :primary="c.primary"
         :soft="c.soft"
         @toggle-region="toggleRegion"
-        @update:query="query = $event"
-        @close-nav="closeNav"
       />
 
       <main style="flex:1; min-width:0; overflow-y:auto; background:var(--bg-page);">

@@ -7,25 +7,22 @@ const props = defineProps<{
   tree: TreeGroup[]
   t: Record<string, string>
   mobile: boolean
-  navOpen: boolean
-  query: string
   primary: string
   soft: string
 }>()
 
 const emit = defineEmits<{
   toggleRegion: [string]
-  'update:query': [string]
-  closeNav: []
 }>()
 
 const { prefetch } = usePrefetchForecast()
+const { query, navOpen, closeNav } = useNavigation()
 </script>
 
 <template>
   <div
-    :style="{ display: props.mobile && props.navOpen ? 'block' : 'none', position: 'fixed', left: 0, right: 0, top: '54px', bottom: 0, background: 'rgba(20,28,40,0.4)', zIndex: 35 }"
-    @click="emit('closeNav')"
+    :style="{ display: props.mobile && navOpen ? 'block' : 'none', position: 'fixed', left: 0, right: 0, top: '54px', bottom: 0, background: 'rgba(20,28,40,0.4)', zIndex: 35 }"
+    @click="closeNav"
   ></div>
 
   <nav
@@ -36,22 +33,21 @@ const { prefetch } = usePrefetchForecast()
       borderRight: '1px solid oklch(0.91 0.006 255)',
       overflowY: 'auto',
       position: props.mobile ? 'fixed' : 'relative',
-      left: props.mobile ? (props.navOpen ? '0px' : '-300px') : '0px',
+      left: props.mobile ? (navOpen ? '0px' : '-300px') : '0px',
       top: props.mobile ? '54px' : '0px',
       bottom: 0,
       zIndex: 40,
-      boxShadow: (props.mobile && props.navOpen) ? '0 0 40px rgba(20,28,40,0.25)' : 'none',
+      boxShadow: (props.mobile && navOpen) ? '0 0 40px rgba(20,28,40,0.25)' : 'none',
       transition: 'left 0.24s ease'
     }"
   >
     <div :style="{ display: props.mobile ? 'block' : 'none', padding: '12px 14px 2px', position: 'relative' }">
       <input
-        :value="props.query"
+        v-model="query"
         :placeholder="props.t.search"
         :aria-label="props.t.search"
         type="search"
         style="width:100%; height:40px; border:1px solid var(--border); border-radius:8px; background:oklch(0.98 0.003 255); padding:0 12px 0 34px; font-size:14px; font-family:inherit; outline:none; color:inherit; box-sizing:border-box;"
-        @input="emit('update:query', ($event.target as HTMLInputElement).value)"
       />
       <span style="position:absolute; left:26px; top:calc(50% + 5px); transform:translateY(-50%); font-size:15px; color:var(--text-subtle);">⌕</span>
     </div>
@@ -68,7 +64,7 @@ const { prefetch } = usePrefetchForecast()
           color: $route.path.startsWith('/maps') ? props.primary : 'oklch(0.34 0.012 255)',
           textDecoration: 'none', boxSizing: 'border-box',
         }"
-        @click="emit('closeNav')"
+        @click="closeNav"
       >
         <span style="font-size:15px; flex:none; line-height:1;">▦</span>
         <span style="flex:1;">{{ props.t.maps ?? 'Weather maps' }}</span>
@@ -105,7 +101,7 @@ const { prefetch } = usePrefetchForecast()
             padding: props.mobile ? '12px 16px 12px 28px' : '7px 16px 7px 28px',
             fontWeight: loc.selected ? 600 : 450
           }"
-          @click="emit('closeNav')"
+          @click="closeNav"
           @mouseenter="prefetch(loc.id)"
           @touchstart="prefetch(loc.id)"
         >
