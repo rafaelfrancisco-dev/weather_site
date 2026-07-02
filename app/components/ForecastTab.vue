@@ -5,12 +5,12 @@ import { densityStyles } from '~/composables/useSettings'
 const props = defineProps<{
   hourlyGrid: HourlyGrid
   dailyRows: DailyRow[]
-  mobile: boolean
   t: Record<string, string>
 }>()
 
 const settings = useSettings()
 const dens = computed(() => densityStyles(settings.value.density))
+const forecastRoot = ref<HTMLElement | null>(null)
 
 const SKELETON_DAILY_ROWS = 10
 const SKELETON_DAY_GROUPS = 3
@@ -26,14 +26,33 @@ const skeletonHourRows = computed(() => [
   { label: props.t.windSpd, unit: 'km/h' },
   { label: props.t.humidity, unit: '%' }
 ])
+
+function scrollCurrentHourIntoView() {
+  if (!import.meta.client) return
+  nextTick(() => {
+    const current = forecastRoot.value?.querySelector<HTMLElement>('.hourly-card--current')
+    const strip = current?.parentElement
+    if (!current || !strip) return
+    strip.scrollLeft = current.offsetLeft - ((strip.clientWidth - current.offsetWidth) / 2)
+  })
+}
+
+watch(
+  () => props.hourlyGrid.hourDays
+    .map(day => day.cells.map(cell => cell.isCurrent ? '1' : '0').join(''))
+    .join('|'),
+  scrollCurrentHourIntoView,
+  { immediate: true, flush: 'post' }
+)
+onMounted(scrollCurrentHourIntoView)
 </script>
 
 <template>
-  <div>
+  <div ref="forecastRoot">
     <div style="font-size:13.5px; font-weight:600; color:var(--text-heading); margin-bottom:8px;">{{ props.t.hourly }}</div>
 
     <!-- desktop hourly grid -->
-    <div v-if="!props.mobile" style="border:1px solid oklch(0.89 0.008 255); border-radius:7px; overflow:hidden; background:#fff; margin-bottom:26px;">
+    <div class="variant-desktop" style="border:1px solid oklch(0.89 0.008 255); border-radius:7px; overflow:hidden; background:#fff; margin-bottom:26px;">
       <div style="overflow-x:auto;">
         <table style="border-collapse:collapse; width:100%; min-width:760px;">
           <thead>
@@ -103,12 +122,12 @@ const skeletonHourRows = computed(() => [
     </div>
 
     <!-- mobile hourly cards -->
-    <div v-if="props.mobile" style="margin-bottom:24px; display:flex; flex-direction:column; gap:14px;">
+    <div class="variant-mobile mobile-hourly" style="margin-bottom:24px;">
       <template v-if="props.hourlyGrid.hourDays.length === 0">
         <div v-for="di in SKELETON_DAY_GROUPS" :key="di">
           <div style="font-size:12px; font-weight:600; color:oklch(0.45 0.012 255); margin-bottom:7px; font-family:'IBM Plex Mono',monospace;">—</div>
-          <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch;">
-            <div v-for="ci in SKELETON_COLS_PER_DAY" :key="ci" style="flex:none; width:74px; border:1px solid oklch(0.9 0.006 255); border-radius:10px; background:#fff; padding:9px 6px; display:flex; flex-direction:column; align-items:center; gap:5px;">
+          <div class="hourly-strip">
+            <div v-for="ci in SKELETON_COLS_PER_DAY" :key="ci" class="hourly-card" style="border:1px solid oklch(0.9 0.006 255); background:#fff; padding:9px 6px;">
               <span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-muted);">—</span>
               <div style="width:30px; height:30px; border-radius:6px; background:oklch(0.93 0.005 255);"></div>
               <span style="font-family:'IBM Plex Mono', monospace; font-size:17px; font-weight:600; color:var(--text-faint);">—</span>
@@ -123,8 +142,8 @@ const skeletonHourRows = computed(() => [
       <template v-else>
         <div v-for="(hd, di) in props.hourlyGrid.hourDays" :key="di">
           <div style="font-size:12px; font-weight:600; color:oklch(0.45 0.012 255); margin-bottom:7px; font-family:'IBM Plex Mono',monospace;">{{ hd.label }}</div>
-          <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; -webkit-overflow-scrolling:touch;">
-            <div v-for="(hc, ci) in hd.cells" :key="ci" :style="{ flex: 'none', width: '74px', border: hc.isCurrent ? '2px solid oklch(0.65 0.02 255)' : '1px solid oklch(0.9 0.006 255)', borderRadius: '10px', background: hc.isCurrent ? 'oklch(0.93 0.009 255)' : '#fff', padding: hc.isCurrent ? '8px 5px' : '9px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }">
+          <div class="hourly-strip">
+            <div v-for="(hc, ci) in hd.cells" :key="ci" class="hourly-card" :class="{ 'hourly-card--current': hc.isCurrent }" :style="{ border: hc.isCurrent ? '2px solid oklch(0.65 0.02 255)' : '1px solid oklch(0.9 0.006 255)', background: hc.isCurrent ? 'oklch(0.93 0.009 255)' : '#fff', padding: hc.isCurrent ? '8px 5px' : '9px 6px' }">
               <span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-muted);">{{ hc.time }}</span>
               <img v-if="hc.icon" :src="hc.icon" :alt="hc.title" :title="hc.title" loading="lazy" decoding="async" style="width:30px; height:30px;" />
               <span :style="{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '17px', fontWeight: 600, color: hc.tempColor }">{{ hc.temp }}°</span>
@@ -144,7 +163,7 @@ const skeletonHourRows = computed(() => [
     <div style="font-size:13.5px; font-weight:600; color:var(--text-heading); margin-bottom:8px;">{{ props.t.tenDay }}</div>
 
     <!-- desktop 10-day table -->
-    <div v-if="!props.mobile" style="border:1px solid oklch(0.89 0.008 255); border-radius:7px; overflow:hidden; background:#fff;">
+    <div class="variant-desktop" style="border:1px solid oklch(0.89 0.008 255); border-radius:7px; overflow:hidden; background:#fff;">
       <div style="overflow-x:auto;">
         <table style="border-collapse:collapse; width:100%; min-width:680px;">
           <thead>
@@ -210,7 +229,7 @@ const skeletonHourRows = computed(() => [
     </div>
 
     <!-- mobile 10-day rows -->
-    <div v-if="props.mobile" style="border:1px solid oklch(0.89 0.008 255); border-radius:10px; overflow:hidden; background:#fff;">
+    <div class="variant-mobile" style="border:1px solid oklch(0.89 0.008 255); border-radius:10px; overflow:hidden; background:#fff;">
       <template v-if="props.dailyRows.length === 0">
         <div v-for="i in SKELETON_DAILY_ROWS" :key="i" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border-subtle);">
           <div style="flex:none; width:52px;">
@@ -244,3 +263,49 @@ const skeletonHourRows = computed(() => [
     </div>
   </div>
 </template>
+
+<style scoped>
+.variant-mobile {
+  display: none;
+}
+
+.mobile-hourly {
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hourly-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 24px), transparent);
+}
+
+.hourly-card {
+  display: flex;
+  flex: none;
+  width: 74px;
+  scroll-snap-align: start;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  border-radius: 10px;
+}
+
+@media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {
+  .variant-desktop {
+    display: none;
+  }
+
+  .variant-mobile {
+    display: block;
+  }
+
+  .mobile-hourly {
+    display: flex;
+  }
+}
+</style>

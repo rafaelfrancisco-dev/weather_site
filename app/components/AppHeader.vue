@@ -4,35 +4,63 @@ import type { Density } from '~/composables/useSettings'
 
 const props = defineProps<{
   t: Record<string, string>
-  mobile: boolean
   headerBg: string
 }>()
 
 const settings = useSettings()
 const settingsOpen = ref(false)
+const settingsRoot = ref<HTMLElement | null>(null)
 const { query, navOpen, toggleNav } = useNavigation()
 
 const accentOptions: AccentTheme[] = ['Institutional blue', 'Teal', 'Slate']
 const densityOptions: Density[] = ['Comfortable', 'Compact']
+
+useHead({
+  meta: [
+    { name: 'theme-color', content: computed(() => props.headerBg) }
+  ]
+})
+
+function closeSettings() {
+  settingsOpen.value = false
+}
+
+function onDocumentPointerdown(event: PointerEvent) {
+  if (!settingsRoot.value?.contains(event.target as Node)) closeSettings()
+}
+
+function onDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeSettings()
+}
+
+watch(settingsOpen, (open) => {
+  if (!import.meta.client || !open) return
+  document.addEventListener('pointerdown', onDocumentPointerdown)
+  document.addEventListener('keydown', onDocumentKeydown)
+  onWatcherCleanup(() => {
+    document.removeEventListener('pointerdown', onDocumentPointerdown)
+    document.removeEventListener('keydown', onDocumentKeydown)
+  })
+})
 </script>
 
 <template>
-  <header :style="{ flex: 'none', height: '54px', background: props.headerBg, color: '#fff', display: 'flex', alignItems: 'center', gap: '16px', padding: '0 16px', zIndex: 30, position: 'relative' }">
+  <header class="app-header" :style="{ background: props.headerBg }">
     <button
+      class="menu-button"
       aria-label="Menu"
       :aria-expanded="navOpen"
-      :style="{ display: props.mobile ? 'inline-flex' : 'none', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', marginLeft: '-4px', flex: 'none', border: 'none', background: 'rgba(255,255,255,0.16)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '17px', fontFamily: 'inherit' }"
       @click="toggleNav"
     >☰</button>
 
-    <div style="display:flex; align-items:baseline; gap:9px;">
-      <span style="font-weight:700; font-size:18px; letter-spacing:0.04em;">MET<span style="opacity:0.55;">·</span>PT</span>
-      <span style="font-size:11px; opacity:0.7; font-weight:500; letter-spacing:0.02em;">{{ props.t.subtitle }}</span>
+    <div class="brand-block">
+      <span class="brand-title">MET<span style="opacity:0.55;">·</span>PT</span>
+      <span class="brand-subtitle">{{ props.t.subtitle }}</span>
     </div>
 
     <div style="flex:1;"></div>
 
-    <div :style="{ position: 'relative', display: props.mobile ? 'none' : 'flex', alignItems: 'center' }">
+    <div class="header-search">
       <input
         v-model="query"
         :placeholder="props.t.search"
@@ -43,14 +71,16 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
       <span style="position:absolute; left:9px; font-size:13px; opacity:0.7;">⌕</span>
     </div>
 
-    <div style="display:flex; border:1px solid rgba(255,255,255,0.28); border-radius:5px; overflow:hidden;">
+    <div class="lang-toggle">
       <button
+        class="lang-button"
         :aria-pressed="settings.lang === 'en'"
         aria-label="English"
         :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: settings.lang === 'en' ? '#fff' : 'transparent', color: settings.lang === 'en' ? props.headerBg : '#fff' }"
         @click="settings.lang = 'en'"
       >EN</button>
       <button
+        class="lang-button"
         :aria-pressed="settings.lang === 'pt'"
         aria-label="Português"
         :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: settings.lang === 'pt' ? '#fff' : 'transparent', color: settings.lang === 'pt' ? props.headerBg : '#fff' }"
@@ -58,17 +88,17 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
       >PT</button>
     </div>
 
-    <div style="position:relative;">
+    <div ref="settingsRoot" class="settings-root">
       <button
+        class="settings-button"
         aria-label="Settings"
         :aria-expanded="settingsOpen"
-        style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:none; background:rgba(255,255,255,0.14); border-radius:5px; color:#fff; cursor:pointer; font-size:14px;"
         @click="settingsOpen = !settingsOpen"
       >⚙</button>
 
       <div
         v-if="settingsOpen"
-        style="position:absolute; right:0; top:38px; width:230px; background:#fff; color:oklch(0.24 0.012 255); border-radius:8px; box-shadow:0 8px 30px rgba(20,28,40,0.25); padding:14px; font-size:12.5px; z-index:50;"
+        class="settings-popover"
       >
         <div style="font-weight:600; margin-bottom:8px;">{{ settings.lang === 'pt' ? 'Aparência' : 'Appearance' }}</div>
 
@@ -78,6 +108,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
             <button
               v-for="opt in accentOptions"
               :key="opt"
+              class="settings-option"
               :style="{ flex: 1, border: settings.accent === opt ? '2px solid oklch(0.5 0.12 255)' : '1px solid oklch(0.85 0.01 255)', borderRadius: '5px', padding: '4px', cursor: 'pointer', background: '#fff', fontSize: '10px' }"
               @click="settings.accent = opt"
             >{{ opt.split(' ')[0] }}</button>
@@ -90,6 +121,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
             <button
               v-for="opt in densityOptions"
               :key="opt"
+              class="settings-option"
               :style="{ flex: 1, border: settings.density === opt ? '2px solid oklch(0.5 0.12 255)' : '1px solid oklch(0.85 0.01 255)', borderRadius: '5px', padding: '4px', cursor: 'pointer', background: '#fff', fontSize: '10px' }"
               @click="settings.density = opt"
             >{{ opt }}</button>
@@ -104,3 +136,155 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
     </div>
   </header>
 </template>
+
+<style scoped>
+.app-header {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 16px;
+  height: 54px;
+  padding: 0 16px;
+  color: #fff;
+}
+
+.menu-button {
+  display: none;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-left: -4px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 17px;
+}
+
+.brand-block {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 9px;
+  white-space: nowrap;
+}
+
+.brand-title {
+  flex: none;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.brand-subtitle {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+  text-overflow: ellipsis;
+}
+
+.header-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.header-search input {
+  font-size: 16px !important;
+}
+
+.lang-toggle {
+  display: flex;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 5px;
+}
+
+.settings-root {
+  position: relative;
+  flex: none;
+}
+
+.settings-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.settings-popover {
+  position: absolute;
+  z-index: 50;
+  top: 38px;
+  right: 0;
+  width: 230px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(20, 28, 40, 0.25);
+  color: oklch(0.24 0.012 255);
+  font-size: 12.5px;
+}
+
+@media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {
+  .app-header {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .menu-button {
+    display: inline-flex;
+  }
+
+  .brand-block {
+    gap: 7px;
+  }
+
+  .header-search {
+    display: none;
+  }
+
+  .lang-button,
+  .settings-option {
+    min-height: 40px;
+  }
+
+  .lang-button {
+    min-width: 40px;
+    padding-inline: 10px !important;
+  }
+
+  .settings-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .settings-popover {
+    top: 46px;
+    right: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-subtitle {
+    display: none;
+  }
+}
+</style>

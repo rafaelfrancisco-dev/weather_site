@@ -6,7 +6,6 @@ import { locationHref, parseLocationId } from '#shared/slug'
 const route = useRoute()
 const tab = ref<'forecast' | 'obs'>('forecast')
 
-const { mobile } = useViewport()
 const settings = useSettings()
 const { locations, bootstrapped } = useLocationsData()
 
@@ -80,16 +79,25 @@ useSeoMeta({
     <LocationHeader :loc="locationMeta" :t="t" />
     <WarningBanner :data="warningBanner" />
 
-    <div style="display:flex; gap:2px; border-bottom:1px solid var(--border); margin-bottom:18px;">
+    <div class="location-tabs" style="display:flex; gap:2px; border-bottom:1px solid var(--border); margin-bottom:18px;">
       <button
         v-for="tb in tabs"
         :key="tb.key"
+        class="location-tab"
         :style="{ border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '13px', fontWeight: tab === tb.key ? 600 : 500, color: tab === tb.key ? c.primary : 'oklch(0.45 0.01 255)', padding: '9px 15px', borderBottom: `2px solid ${tab === tb.key ? c.primary : 'transparent'}`, marginBottom: '-1px' }"
         @click="tab = tb.key"
       >{{ tb.label }}</button>
     </div>
 
-    <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :mobile="mobile" :t="t" />
-    <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" :mobile="mobile" :primary="c.primary" :soft="c.soft" />
+    <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :t="t" />
+    <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" :primary="c.primary" :soft="c.soft" />
   </template>
 </template>
+
+<style scoped>
+@media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {
+  .location-tab {
+    min-height: 44px;
+  }
+}
+</style>

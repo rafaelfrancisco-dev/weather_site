@@ -37,7 +37,20 @@ const {
   warningsSummary,
 } = useWeatherMapsPage()
 
-useSeoMeta({ title: 'Weather maps - MET·PT' })
+const layerTabs = ref<HTMLElement | null>(null)
+
+function scrollActiveLayerIntoView() {
+  if (!import.meta.client) return
+  nextTick(() => {
+    layerTabs.value
+      ?.querySelector<HTMLElement>('.layer-tab--active')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+  })
+}
+
+watch(activeLayer, scrollActiveLayerIntoView, { immediate: true })
+
+useSeoMeta({ title: 'Weather maps' })
 </script>
 
 <template>
@@ -46,7 +59,7 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
   </div>
 
   <div v-else class="maps-page">
-    <header class="maps-hero">
+    <header class="maps-hero" :class="{ 'maps-hero--district': focus }">
       <div>
         <p class="maps-eyebrow">{{ t.national }}</p>
         <h1>{{ t.weatherMaps }}</h1>
@@ -57,7 +70,7 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
       </div>
     </header>
 
-    <nav class="layer-tabs" aria-label="Weather map layers">
+    <nav ref="layerTabs" class="layer-tabs" aria-label="Weather map layers">
       <button
         v-for="def in layerDefs"
         :key="def.id"
@@ -211,3 +224,20 @@ useSeoMeta({ title: 'Weather maps - MET·PT' })
     </section>
   </div>
 </template>
+
+<style scoped>
+.layer-tabs {
+  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 24px), transparent);
+  scroll-snap-type: x proximity;
+}
+
+.layer-tab {
+  scroll-snap-align: start;
+}
+
+@media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {
+  .maps-hero--district {
+    display: none;
+  }
+}
+</style>

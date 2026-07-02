@@ -8,7 +8,6 @@ const route = useRoute()
 const { query } = useNavigation()
 const open = ref<Record<string, boolean>>({})
 
-const { mobile } = useViewport()
 const settings = useSettings()
 const {
   locations,
@@ -48,17 +47,16 @@ useHead({
 </script>
 
 <template>
-  <div v-if="bootstrapError" style="height:100vh; display:flex; align-items:center; justify-content:center; color:oklch(0.55 0.21 27); font-size:14px;">
+  <div v-if="bootstrapError" class="app-shell app-shell--center" style="color:oklch(0.55 0.21 27); font-size:14px;">
     {{ bootstrapError }}
   </div>
-  <div v-else-if="!bootstrapped" style="height:100vh; display:flex; align-items:center; justify-content:center; color:oklch(0.4 0.012 255); font-size:14px;">
+  <div v-else-if="!bootstrapped" class="app-shell app-shell--center" style="color:oklch(0.4 0.012 255); font-size:14px;">
     Loading forecast data…
   </div>
 
-  <div v-else style="display:flex; flex-direction:column; height:100vh; overflow:hidden;">
+  <div v-else class="app-shell" style="display:flex; flex-direction:column; overflow:hidden;">
     <AppHeader
       :t="t"
-      :mobile="mobile"
       :header-bg="c.headerBg"
     />
 
@@ -66,17 +64,39 @@ useHead({
       <RegionTree
         :tree="tree"
         :t="t"
-        :mobile="mobile"
         :primary="c.primary"
         :soft="c.soft"
         @toggle-region="toggleRegion"
       />
 
       <main style="flex:1; min-width:0; overflow-y:auto; background:var(--bg-page);">
-        <div :style="{ padding: mobile ? '14px 14px 36px' : '18px 22px 40px' }">
+        <div class="app-content">
           <slot />
         </div>
       </main>
     </div>
   </div>
 </template>
+
+<style scoped>
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-shell--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-content {
+  padding: 18px 22px 40px;
+}
+
+@media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {
+  .app-content {
+    padding: 14px 14px 36px;
+  }
+}
+</style>

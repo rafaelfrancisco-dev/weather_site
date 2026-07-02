@@ -457,6 +457,7 @@
   font-size: 13px;
 }
 
+/* Content-width constraint for the district grid, intentionally distinct from the device breakpoint. */
 @media (max-width: 920px) {
   .maps-hero,
   .panel-heading {

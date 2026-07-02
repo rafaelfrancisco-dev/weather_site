@@ -5,24 +5,39 @@ import { densityStyles } from '~/composables/useSettings'
 const props = defineProps<{
   observationGrid: ObservationGrid
   t: Record<string, string>
-  mobile: boolean
   primary: string
   soft: string
 }>()
 
 const settings = useSettings()
 const dens = computed(() => densityStyles(settings.value.density))
+const observationsRoot = ref<HTMLElement | null>(null)
+
+function scrollObservationCardsToLatest() {
+  if (!import.meta.client) return
+  nextTick(() => {
+    observationsRoot.value?.querySelectorAll<HTMLElement>('.observation-scroll').forEach((el) => {
+      el.scrollLeft = el.scrollWidth
+    })
+  })
+}
+
+watch(
+  () => [props.observationGrid.stationCards, props.observationGrid.timeCols],
+  scrollObservationCardsToLatest,
+  { immediate: true }
+)
 </script>
 
 <template>
-  <div>
+  <div ref="observationsRoot">
     <div style="margin-bottom:12px;">
       <div style="font-size:13.5px; font-weight:600; color:var(--text-heading);">{{ props.t.obsTitle }}</div>
       <div style="font-size:11.5px; color:var(--text-subtle); margin-top:3px;">{{ props.observationGrid.summary }}</div>
     </div>
 
     <!-- desktop grid -->
-    <div v-if="!props.mobile" style="border:1px solid oklch(0.86 0.01 255); border-radius:6px; overflow:hidden; background:#fff;">
+    <div class="variant-desktop" style="border:1px solid oklch(0.86 0.01 255); border-radius:6px; overflow:hidden; background:#fff;">
       <div style="overflow-x:auto;">
         <table style="border-collapse:collapse; width:100%; min-width:640px; table-layout:fixed;">
           <thead>
@@ -75,13 +90,13 @@ const dens = computed(() => densityStyles(settings.value.density))
     </div>
 
     <!-- mobile station cards -->
-    <div v-if="props.mobile" style="display:flex; flex-direction:column; gap:14px;">
+    <div class="variant-mobile mobile-observations">
       <div v-for="(card, ci) in props.observationGrid.stationCards" :key="ci" style="border:1px solid oklch(0.86 0.01 255); border-radius:8px; overflow:hidden; background:#fff;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; background:oklch(0.955 0.007 255); border-bottom:1px solid oklch(0.86 0.01 255);">
           <span style="font-size:13px; font-weight:700; color:oklch(0.24 0.016 255); line-height:1.2;">{{ card.name }}</span>
           <span :style="{ flex: 'none', fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', fontWeight: 600, color: props.primary, background: props.soft, borderRadius: '4px', padding: '2px 6px' }">{{ card.latestLabel }}</span>
         </div>
-        <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+        <div class="observation-scroll">
           <table style="border-collapse:collapse; width:100%; min-width:max-content;">
             <thead>
               <tr>
@@ -120,3 +135,40 @@ const dens = computed(() => densityStyles(settings.value.density))
     <div style="font-size:11px; color:var(--text-subtle); margin-top:10px;">{{ props.t.obsNote }}</div>
   </div>
 </template>
+
+<style scoped>
+.variant-mobile {
+  display: none;
+}
+
+.mobile-observations {
+  flex-direction: column;
+  gap: 14px;
+}
+
+.observation-scroll {
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 24px), transparent);
+}
+
+.observation-scroll th,
+.observation-scroll td {
+  scroll-snap-align: start;
+}
+
+@media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {
+  .variant-desktop {
+    display: none;
+  }
+
+  .variant-mobile {
+    display: block;
+  }
+
+  .mobile-observations {
+    display: flex;
+  }
+}
+</style>

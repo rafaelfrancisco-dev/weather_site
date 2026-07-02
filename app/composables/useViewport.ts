@@ -1,18 +1,23 @@
+import { MOBILE_MEDIA_QUERY } from '~/utils/breakpoint'
+
+let listenerInstalled = false
+let media: MediaQueryList | null = null
+
 export function useViewport() {
-  const mobile = ref(false)
+  const mobile = useState('viewport-mobile', () => false)
 
-  const update = () => {
-    mobile.value = window.innerWidth <= 700
-  }
+  if (import.meta.client) {
+    media ??= window.matchMedia(MOBILE_MEDIA_QUERY)
+    const update = () => {
+      mobile.value = media?.matches ?? false
+    }
 
-  onMounted(() => {
     update()
-    window.addEventListener('resize', update, { passive: true })
-  })
-
-  onBeforeUnmount(() => {
-    window.removeEventListener('resize', update)
-  })
+    if (!listenerInstalled) {
+      listenerInstalled = true
+      media.addEventListener('change', update)
+    }
+  }
 
   return { mobile }
 }

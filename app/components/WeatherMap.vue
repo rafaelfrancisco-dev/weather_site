@@ -43,6 +43,7 @@ const mapEl = ref<HTMLDivElement | null>(null)
 
 const locationForecastCache = new Map<number, LocationForecastCacheEntry>()
 let forecastFetchTimer: ReturnType<typeof setTimeout> | null = null
+const focusCameraPadding = { top: 96, right: 56, bottom: 56, left: 56 }
 
 const { mapReady, noToken, getMap } = useMapboxMap({
   container: mapEl,
@@ -303,19 +304,19 @@ watch(
     if (district) {
       const cap = CAPITALS.find(c => c.district === district)
       if (cap) {
-        map.flyTo({ center: [cap.lon, cap.lat], zoom: 9, duration: 600 })
+        map.flyTo({ center: [cap.lon, cap.lat], zoom: 9, duration: 600, padding: focusCameraPadding })
         return
       }
     }
     if (group === 'madeira') {
-      map.flyTo({ center: [-16.9, 32.65], zoom: 10, duration: 600 })
+      map.flyTo({ center: [-16.9, 32.65], zoom: 10, duration: 600, padding: focusCameraPadding })
       return
     }
     if (group === 'azores') {
-      map.flyTo({ center: [-27.2, 38.6], zoom: 7, duration: 600 })
+      map.flyTo({ center: [-27.2, 38.6], zoom: 7, duration: 600, padding: focusCameraPadding })
       return
     }
-    map.flyTo({ center: [-8.2, 39.5], zoom: 6.3, duration: 600 })
+    map.flyTo({ center: [-8.2, 39.5], zoom: 6.3, duration: 600, padding: focusCameraPadding })
   },
 )
 </script>
