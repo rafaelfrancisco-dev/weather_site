@@ -358,14 +358,14 @@ watch(
 
     <div
       v-if="noToken"
-      style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:oklch(0.975 0.004 250);font-size:13px;color:oklch(0.5 0.01 255);text-align:center;padding:24px;border-radius:inherit;"
+      style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-page);font-size:13px;color:var(--text-muted);text-align:center;padding:24px;border-radius:inherit;"
     >
       Set <code>NUXT_PUBLIC_MAPBOX_TOKEN</code> to enable the map.
     </div>
 
     <div
       v-else-if="!mapReady"
-      style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:oklch(0.975 0.004 250);font-size:13px;color:oklch(0.5 0.01 255);border-radius:inherit;"
+      style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-page);font-size:13px;color:var(--text-muted);border-radius:inherit;"
     >
       Loading map…
     </div>

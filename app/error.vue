@@ -22,7 +22,7 @@ function goHome() {
 </script>
 
 <template>
-  <div style="height:100vh; display:flex; align-items:center; justify-content:center; background:oklch(0.975 0.004 250); color:oklch(0.24 0.012 255); font-family:'IBM Plex Sans', system-ui, sans-serif; padding:20px;">
+  <div style="height:100vh; display:flex; align-items:center; justify-content:center; background:var(--bg-page); color:oklch(0.24 0.012 255); font-family:'IBM Plex Sans', system-ui, sans-serif; padding:20px;">
     <div style="text-align:center; max-width:420px;">
       <div style="font-weight:700; font-size:18px; letter-spacing:0.04em; margin-bottom:22px;">MET<span style="opacity:0.55;">·</span>PT</div>
       <div :style="{ fontSize: '52px', fontWeight: 700, lineHeight: 1, color: c.primary, fontFamily: `'IBM Plex Mono', monospace` }">{{ error.statusCode }}</div>

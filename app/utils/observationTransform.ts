@@ -170,7 +170,7 @@ export function buildObservationGrid(
     label: observationTimeLabel(tm),
     bg: i === lastIdx ? softColor : 'oklch(0.975 0.004 255)',
     weight: i === lastIdx ? 700 : 500,
-    color: i === lastIdx ? primaryColor : 'oklch(0.5 0.01 255)',
+    color: i === lastIdx ? primaryColor : 'var(--text-muted)',
   }))
 
   const metricRowDefs: { key: 'temp' | 'hum' | 'wind' | 'pressure' | 'precip', label: string, unit: string }[] = [

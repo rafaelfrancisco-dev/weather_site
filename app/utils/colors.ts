@@ -1,3 +1,7 @@
+// Semantic color logic (temperature, precipitation, wind, UV, warning levels)
+// lives here. The shared neutral tokens (--border, --text-muted, --bg-page, …)
+// are CSS custom properties defined in app/app.vue's :root block — prefer
+// var(--token) in templates over re-inlining those oklch literals.
 export type AccentTheme = 'Institutional blue' | 'Teal' | 'Slate'
 export type WarningLevel = 'green' | 'yellow' | 'orange' | 'red'
 

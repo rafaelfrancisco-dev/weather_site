@@ -17,8 +17,8 @@ const dens = computed(() => densityStyles(settings.value.density))
 <template>
   <div>
     <div style="margin-bottom:12px;">
-      <div style="font-size:13.5px; font-weight:600; color:oklch(0.30 0.012 255);">{{ props.t.obsTitle }}</div>
-      <div style="font-size:11.5px; color:oklch(0.55 0.01 255); margin-top:3px;">{{ props.observationGrid.summary }}</div>
+      <div style="font-size:13.5px; font-weight:600; color:var(--text-heading);">{{ props.t.obsTitle }}</div>
+      <div style="font-size:11.5px; color:var(--text-subtle); margin-top:3px;">{{ props.observationGrid.summary }}</div>
     </div>
 
     <!-- desktop grid -->
@@ -27,7 +27,7 @@ const dens = computed(() => densityStyles(settings.value.density))
         <table style="border-collapse:collapse; width:100%; min-width:640px; table-layout:fixed;">
           <thead>
             <tr>
-              <th rowspan="2" scope="col" style="position:sticky; left:0; z-index:7; width:118px; min-width:118px; background:oklch(0.945 0.008 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:1px solid oklch(0.88 0.008 255); padding:7px 10px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.45 0.012 255);">{{ props.observationGrid.stationLabel }}</th>
+              <th rowspan="2" scope="col" style="position:sticky; left:0; z-index:7; width:118px; min-width:118px; background:oklch(0.945 0.008 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:1px solid var(--border); padding:7px 10px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.45 0.012 255);">{{ props.observationGrid.stationLabel }}</th>
               <th rowspan="2" scope="col" style="position:sticky; left:118px; z-index:7; width:108px; min-width:108px; background:oklch(0.96 0.006 255); border-bottom:2px solid oklch(0.82 0.012 255); border-right:2px solid oklch(0.84 0.012 255); padding:7px 9px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:oklch(0.5 0.012 255); overflow:hidden; text-overflow:ellipsis;">{{ props.observationGrid.paramLabel }}</th>
               <th
                 v-if="props.observationGrid.timeCols.length > 0"
@@ -51,7 +51,7 @@ const dens = computed(() => densityStyles(settings.value.density))
                 v-if="r.first"
                 :rowspan="r.stationRowspan"
                 scope="rowgroup"
-                :style="{ position: 'sticky', left: '0', zIndex: 6, width: '118px', minWidth: '118px', background: r.stationBg, borderTop: r.topBorder, borderRight: '1px solid oklch(0.88 0.008 255)', padding: dens.pad, textAlign: 'left', verticalAlign: 'top', fontSize: dens.fz, fontWeight: 700, color: 'oklch(0.24 0.016 255)', lineHeight: 1.25 }"
+                :style="{ position: 'sticky', left: '0', zIndex: 6, width: '118px', minWidth: '118px', background: r.stationBg, borderTop: r.topBorder, borderRight: '1px solid var(--border)', padding: dens.pad, textAlign: 'left', verticalAlign: 'top', fontSize: dens.fz, fontWeight: 700, color: 'oklch(0.24 0.016 255)', lineHeight: 1.25 }"
               >{{ r.station }}</th>
               <th scope="row" :style="{ position: 'sticky', left: '118px', zIndex: 5, width: '108px', minWidth: '108px', background: r.labelBg, borderTop: r.topBorder, borderRight: '2px solid oklch(0.84 0.012 255)', borderBottom: '1px solid oklch(0.95 0.005 255)', padding: dens.pad, textAlign: 'left', fontSize: dens.fz, fontWeight: 500, color: 'oklch(0.42 0.012 255)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }">
                 {{ r.label }}
@@ -117,6 +117,6 @@ const dens = computed(() => densityStyles(settings.value.density))
       </div>
     </div>
 
-    <div style="font-size:11px; color:oklch(0.55 0.01 255); margin-top:10px;">{{ props.t.obsNote }}</div>
+    <div style="font-size:11px; color:var(--text-subtle); margin-top:10px;">{{ props.t.obsNote }}</div>
   </div>
 </template>

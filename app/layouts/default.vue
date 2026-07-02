@@ -92,7 +92,7 @@ useHead({
         @close-nav="closeNav"
       />
 
-      <main style="flex:1; min-width:0; overflow-y:auto; background:oklch(0.975 0.004 250);">
+      <main style="flex:1; min-width:0; overflow-y:auto; background:var(--bg-page);">
         <div :style="{ padding: mobile ? '14px 14px 36px' : '18px 22px 40px' }">
           <slot />
         </div>

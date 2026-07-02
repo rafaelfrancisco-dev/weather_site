@@ -80,7 +80,7 @@ useSeoMeta({
     <LocationHeader :loc="locationMeta" :t="t" />
     <WarningBanner :data="warningBanner" />
 
-    <div style="display:flex; gap:2px; border-bottom:1px solid oklch(0.88 0.008 255); margin-bottom:18px;">
+    <div style="display:flex; gap:2px; border-bottom:1px solid var(--border); margin-bottom:18px;">
       <button
         v-for="tb in tabs"
         :key="tb.key"

@@ -19,7 +19,7 @@ const props = defineProps<{
       <div style="font-size:13.5px; font-weight:600; color:oklch(0.28 0.02 255);">{{ props.data.banner.type }}</div>
       <div style="font-size:12px; color:oklch(0.42 0.012 255); margin-top:2px;">
         {{ props.data.banner.text }}
-        <span style="font-family:'IBM Plex Mono',monospace; color:oklch(0.5 0.01 255);">· {{ props.data.banner.window }}</span>
+        <span style="font-family:'IBM Plex Mono',monospace; color:var(--text-muted);">· {{ props.data.banner.window }}</span>
       </div>
     </div>
   </div>

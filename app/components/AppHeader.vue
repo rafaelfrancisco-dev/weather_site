@@ -83,7 +83,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
         <div style="font-weight:600; margin-bottom:8px;">{{ props.lang === 'pt' ? 'Aparência' : 'Appearance' }}</div>
 
         <div style="margin-bottom:10px;">
-          <div style="color:oklch(0.5 0.01 255); margin-bottom:4px; font-size:11px;">{{ props.lang === 'pt' ? 'Cor de destaque' : 'Accent' }}</div>
+          <div style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">{{ props.lang === 'pt' ? 'Cor de destaque' : 'Accent' }}</div>
           <div style="display:flex; gap:6px;">
             <button
               v-for="opt in accentOptions"
@@ -95,7 +95,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
         </div>
 
         <div style="margin-bottom:10px;">
-          <div style="color:oklch(0.5 0.01 255); margin-bottom:4px; font-size:11px;">{{ props.lang === 'pt' ? 'Densidade' : 'Density' }}</div>
+          <div style="color:var(--text-muted); margin-bottom:4px; font-size:11px;">{{ props.lang === 'pt' ? 'Densidade' : 'Density' }}</div>
           <div style="display:flex; gap:6px;">
             <button
               v-for="opt in densityOptions"

@@ -50,10 +50,10 @@ const { prefetch } = usePrefetchForecast()
         :placeholder="props.t.search"
         :aria-label="props.t.search"
         type="search"
-        style="width:100%; height:40px; border:1px solid oklch(0.88 0.008 255); border-radius:8px; background:oklch(0.98 0.003 255); padding:0 12px 0 34px; font-size:14px; font-family:inherit; outline:none; color:inherit; box-sizing:border-box;"
+        style="width:100%; height:40px; border:1px solid var(--border); border-radius:8px; background:oklch(0.98 0.003 255); padding:0 12px 0 34px; font-size:14px; font-family:inherit; outline:none; color:inherit; box-sizing:border-box;"
         @input="emit('update:query', ($event.target as HTMLInputElement).value)"
       />
-      <span style="position:absolute; left:26px; top:calc(50% + 5px); transform:translateY(-50%); font-size:15px; color:oklch(0.55 0.01 255);">⌕</span>
+      <span style="position:absolute; left:26px; top:calc(50% + 5px); transform:translateY(-50%); font-size:15px; color:var(--text-subtle);">⌕</span>
     </div>
 
     <div style="padding:12px 12px 2px;">
@@ -61,7 +61,7 @@ const { prefetch } = usePrefetchForecast()
         to="/maps"
         :style="{
           width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-          border: `1px solid ${$route.path.startsWith('/maps') ? props.primary : 'oklch(0.88 0.008 255)'}`,
+          border: `1px solid ${$route.path.startsWith('/maps') ? props.primary : 'var(--border)'}`,
           background: $route.path.startsWith('/maps') ? props.soft : 'transparent',
           cursor: 'pointer', padding: '11px 12px', borderRadius: '9px',
           fontSize: '13px', fontWeight: 600,
@@ -76,12 +76,12 @@ const { prefetch } = usePrefetchForecast()
       </NuxtLink>
     </div>
 
-    <div style="padding:13px 16px 9px; font-size:10.5px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; color:oklch(0.55 0.01 255);">{{ props.t.regions }}</div>
+    <div style="padding:13px 16px 9px; font-size:10.5px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-subtle);">{{ props.t.regions }}</div>
 
     <div v-for="region in props.tree" :key="region.id">
       <button
         :aria-expanded="region.open"
-        :style="{ width: '100%', display: 'flex', alignItems: 'center', gap: '7px', border: 'none', background: 'none', cursor: 'pointer', padding: props.mobile ? '13px 16px' : '9px 16px', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, color: 'oklch(0.30 0.012 255)', textAlign: 'left' }"
+        :style="{ width: '100%', display: 'flex', alignItems: 'center', gap: '7px', border: 'none', background: 'none', cursor: 'pointer', padding: props.mobile ? '13px 16px' : '9px 16px', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', textAlign: 'left' }"
         @click="emit('toggleRegion', region.id)"
       >
         <span :style="{ display: 'inline-block', width: '9px', fontSize: '10px', color: 'oklch(0.6 0.01 255)', transform: `rotate(${region.caret}deg)`, transition: 'transform 0.15s' }">▶</span>
