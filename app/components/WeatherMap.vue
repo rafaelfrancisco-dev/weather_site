@@ -37,16 +37,26 @@ const props = defineProps<{
 const emit = defineEmits<{ pick: [pick: MapPick] }>()
 
 const settings = useSettings()
-const config = useRuntimeConfig()
 const { locations, stations, observations, warningsByArea, districtMap } = useLocationsData()
 
 const mapEl = ref<HTMLDivElement | null>(null)
-const mapReady = ref(false)
 
-let map: Map | null = null
-let popup: Popup | null = null
 const locationForecastCache = new Map<number, LocationForecastCacheEntry>()
 let forecastFetchTimer: ReturnType<typeof setTimeout> | null = null
+
+const { mapReady, noToken, getMap } = useMapboxMap({
+  container: mapEl,
+  initialView: () => getInitialView(props.focus),
+  popupMaxWidth: '220px',
+  resizeOn: () => props.height,
+  onLoad: async (map, _mapboxgl, popup) => {
+    await loadWeatherIcons(map)
+    initSources(map)
+    initLayers(map)
+    initInteractions(map, popup!)
+    applyLayerVisibility(map)
+  },
+})
 
 const districtWarnings = computed<Record<string, { type: string; level: string }>>(() => {
   return districtWarningEntries(locations.value, districtMap.value, warningsByArea.value)
@@ -65,8 +75,6 @@ const nationalAvgTemp = computed(() => {
   if (!values.length) return 20
   return values.reduce((a, b) => a + b, 0) / values.length
 })
-
-const noToken = computed(() => !config.public.mapboxToken)
 
 function districtSourceData() {
   return buildDistrictDataGeoJSON({
@@ -87,8 +95,7 @@ function locationsSourceData() {
   })
 }
 
-function applyLayerVisibility() {
-  if (!map) return
+function applyLayerVisibility(map: Map) {
   const active = new Set(LAYER_GROUPS[props.layer])
   for (const id of ALL_TOGGLED_LAYERS) {
     try {
@@ -106,6 +113,7 @@ function scheduleForecastFetch() {
 }
 
 async function fetchVisibleLocationForecasts() {
+  const map = getMap()
   if (!map || props.layer !== 'forecast') return
   let features: GeoJSON.Feature[]
   try {
@@ -144,10 +152,10 @@ async function fetchVisibleLocationForecasts() {
   }
 }
 
-function initSources() {
-  map!.addSource('districts', { type: 'geojson', data: districtSourceData() })
-  map!.addSource('obs', { type: 'geojson', data: buildObsGeoJSON(stations.value, observations.value) })
-  map!.addSource('locations', {
+function initSources(map: Map) {
+  map.addSource('districts', { type: 'geojson', data: districtSourceData() })
+  map.addSource('obs', { type: 'geojson', data: buildObsGeoJSON(stations.value, observations.value) })
+  map.addSource('locations', {
     type: 'geojson',
     data: locationsSourceData(),
     cluster: true,
@@ -157,34 +165,34 @@ function initSources() {
       tempSum: ['+', ['get', 'clusterTemp']],
     },
   })
-  map!.addSource('capitals', { type: 'geojson', data: buildCapitalsGeoJSON(props.forecastData) })
-  map!.addSource('sea', { type: 'geojson', data: buildSeaGeoJSON() })
+  map.addSource('capitals', { type: 'geojson', data: buildCapitalsGeoJSON(props.forecastData) })
+  map.addSource('sea', { type: 'geojson', data: buildSeaGeoJSON() })
 }
 
-function initLayers() {
-  initWeatherMapLayers(map!, mapboxAccentColor(settings.value.accent))
+function initLayers(map: Map) {
+  initWeatherMapLayers(map, mapboxAccentColor(settings.value.accent))
 }
 
-function initInteractions() {
-  map!.on('moveend', scheduleForecastFetch)
+function initInteractions(map: Map, popup: Popup) {
+  map.on('moveend', scheduleForecastFetch)
 
-  map!.on('click', 'loc-clusters', (e) => {
-    const feats = map!.queryRenderedFeatures(e.point, { layers: ['loc-clusters'] })
+  map.on('click', 'loc-clusters', (e) => {
+    const feats = map.queryRenderedFeatures(e.point, { layers: ['loc-clusters'] })
     if (!feats.length) return
     const clusterId = feats[0].properties!.cluster_id as number
     const coords = (feats[0].geometry as GeoJSON.Point).coordinates as [number, number]
-    const src = map!.getSource('locations') as GeoJSONSource
+    const src = map.getSource('locations') as GeoJSONSource
     src.getClusterExpansionZoom(clusterId, (err, zoom) => {
       if (err || typeof zoom !== 'number' || !Number.isFinite(zoom)) {
-        map!.easeTo({ center: coords, zoom: map!.getZoom() + 2 })
+        map.easeTo({ center: coords, zoom: map.getZoom() + 2 })
         return
       }
-      map!.easeTo({ center: coords, zoom })
+      map.easeTo({ center: coords, zoom })
     })
   })
 
   for (const layer of ['loc-points', 'loc-icons']) {
-    map!.on('click', layer, (e) => {
+    map.on('click', layer, (e) => {
       const feat = e.features?.[0]
       if (!feat) return
       const p = feat.properties!
@@ -192,7 +200,7 @@ function initInteractions() {
     })
   }
 
-  map!.on('click', 'capitals-uv-circles', (e) => {
+  map.on('click', 'capitals-uv-circles', (e) => {
     const feat = e.features?.[0]
     if (!feat) return
     const p = feat.properties!
@@ -201,90 +209,56 @@ function initInteractions() {
 
   const clickable = ['loc-clusters', 'loc-points', 'loc-icons', 'obs-circles', 'sea-circles', 'capitals-uv-circles']
   for (const layer of clickable) {
-    map!.on('mouseenter', layer, () => { map!.getCanvas().style.cursor = 'pointer' })
-    map!.on('mouseleave', layer, () => { map!.getCanvas().style.cursor = '' })
+    map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = '' })
   }
 
-  map!.on('mouseenter', 'obs-circles', (e) => {
+  map.on('mouseenter', 'obs-circles', (e) => {
     const feat = e.features?.[0]
     if (!feat) return
     const p = feat.properties!
     const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
-    popup!.setLngLat(coords).setDOMContent(stationPopupNode(p.stationName, p.temperature, p.color)).addTo(map!)
+    popup.setLngLat(coords).setDOMContent(stationPopupNode(p.stationName, p.temperature, p.color)).addTo(map)
   })
-  map!.on('mouseleave', 'obs-circles', () => popup!.remove())
+  map.on('mouseleave', 'obs-circles', () => popup.remove())
 
-  map!.on('mouseenter', 'capitals-uv-circles', (e) => {
+  map.on('mouseenter', 'capitals-uv-circles', (e) => {
     const feat = e.features?.[0]
     if (!feat) return
     const p = feat.properties!
     const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
-    popup!.setLngLat(coords).setDOMContent(capitalPopupNode(p)).addTo(map!)
+    popup.setLngLat(coords).setDOMContent(capitalPopupNode(p)).addTo(map)
   })
-  map!.on('mouseleave', 'capitals-uv-circles', () => popup!.remove())
+  map.on('mouseleave', 'capitals-uv-circles', () => popup.remove())
 
   for (const layer of ['loc-points', 'loc-icons']) {
-    map!.on('mouseenter', layer, (e) => {
+    map.on('mouseenter', layer, (e) => {
       const feat = e.features?.[0]
       if (!feat) return
       const p = feat.properties!
       const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
-      popup!.setLngLat(coords).setDOMContent(locationPopupNode(p.name, p.tempLabel, p.tempTextColor)).addTo(map!)
+      popup.setLngLat(coords).setDOMContent(locationPopupNode(p.name, p.tempLabel, p.tempTextColor)).addTo(map)
     })
-    map!.on('mouseleave', layer, () => popup!.remove())
+    map.on('mouseleave', layer, () => popup.remove())
   }
 
-  map!.on('mouseenter', 'sea-circles', (e) => {
+  map.on('mouseenter', 'sea-circles', (e) => {
     const feat = e.features?.[0]
     if (!feat) return
     const p = feat.properties!
     const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
-    popup!.setLngLat(coords).setDOMContent(seaPopupNode(p)).addTo(map!)
+    popup.setLngLat(coords).setDOMContent(seaPopupNode(p)).addTo(map)
   })
-  map!.on('mouseleave', 'sea-circles', () => popup!.remove())
+  map.on('mouseleave', 'sea-circles', () => popup.remove())
 }
-
-onMounted(async () => {
-  if (!config.public.mapboxToken) return
-
-  const mapboxgl = (await import('mapbox-gl')).default
-  mapboxgl.accessToken = config.public.mapboxToken as string
-
-  const { center, zoom } = getInitialView(props.focus)
-
-  map = new mapboxgl.Map({
-    container: mapEl.value!,
-    style: 'mapbox://styles/mapbox/light-v11',
-    center,
-    zoom,
-    attributionControl: false,
-    scrollZoom: true,
-  })
-
-  popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '220px' })
-
-  map.on('load', async () => {
-    await loadWeatherIcons(map!)
-    initSources()
-    initLayers()
-    initInteractions()
-    applyLayerVisibility()
-    mapReady.value = true
-  })
-})
-
-onUnmounted(() => {
-  map?.remove()
-  map = null
-  popup = null
-})
 
 watch(
   [() => props.layer, () => props.forecastData, districtWarnings],
   () => {
+    const map = getMap()
     if (!mapReady.value || !map) return
     ;(map.getSource('districts') as GeoJSONSource | undefined)?.setData(districtSourceData())
-    applyLayerVisibility()
+    applyLayerVisibility(map)
   },
   { deep: false },
 )
@@ -292,6 +266,7 @@ watch(
 watch(
   [stations, observations],
   () => {
+    const map = getMap()
     if (!mapReady.value || !map) return
     ;(map.getSource('obs') as GeoJSONSource | undefined)?.setData(buildObsGeoJSON(stations.value, observations.value))
   },
@@ -301,6 +276,7 @@ watch(
 watch(
   locations,
   () => {
+    const map = getMap()
     if (!mapReady.value || !map) return
     ;(map.getSource('locations') as GeoJSONSource | undefined)?.setData(locationsSourceData())
   },
@@ -310,6 +286,7 @@ watch(
 watch(
   () => props.forecastData,
   () => {
+    const map = getMap()
     if (!mapReady.value || !map) return
     ;(map.getSource('capitals') as GeoJSONSource | undefined)?.setData(buildCapitalsGeoJSON(props.forecastData))
   },
@@ -319,6 +296,7 @@ watch(
 watch(
   () => props.focus,
   (newFocus) => {
+    const map = getMap()
     if (!mapReady.value || !map) return
     const district = newFocus?.district
     const group = newFocus?.group
@@ -338,16 +316,6 @@ watch(
       return
     }
     map.flyTo({ center: [-8.2, 39.5], zoom: 6.3, duration: 600 })
-  },
-)
-
-watch(
-  () => props.height,
-  () => {
-    if (!mapReady.value || !map) return
-    nextTick(() => {
-      map?.resize()
-    })
   },
 )
 </script>

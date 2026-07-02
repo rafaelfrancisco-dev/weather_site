@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { Map, GeoJSONSource } from 'mapbox-gl'
+import type { GeoJSONSource } from 'mapbox-gl'
 import { mapboxTempColor, mapboxAccentColor, mapboxObsValueColor } from '~/utils/mapColors'
 import { nearestObservationStations } from '~/utils/mapDerived'
+import { stationPopupNode } from '~/utils/weather-map/popups'
 
 const props = defineProps<{
   center: { lat: number; lon: number }
@@ -11,13 +12,9 @@ const props = defineProps<{
 
 const { mobile } = useViewport()
 const settings = useSettings()
-const config = useRuntimeConfig()
 const { stations, observations } = useLocationsData()
 
 const mapEl = ref<HTMLDivElement | null>(null)
-const mapReady = ref(false)
-
-let map: Map | null = null
 
 const nearestObs = computed(() => {
   const max = props.maxStations ?? 5
@@ -47,27 +44,15 @@ function buildGeoJSON(): GeoJSON.FeatureCollection {
   return { type: 'FeatureCollection', features: [...stationFeatures, centerFeature] }
 }
 
-onMounted(async () => {
-  if (!config.public.mapboxToken) return
+const { mapReady, getMap } = useMapboxMap({
+  container: mapEl,
+  initialView: () => ({ center: [props.center.lon, props.center.lat], zoom: 9 }),
+  scrollZoom: false,
+  popupMaxWidth: '200px',
+  onLoad: (map, mapboxgl, popup) => {
+    map.addSource('obs-mini', { type: 'geojson', data: buildGeoJSON() })
 
-  const mapboxgl = (await import('mapbox-gl')).default
-  mapboxgl.accessToken = config.public.mapboxToken as string
-
-  map = new mapboxgl.Map({
-    container: mapEl.value!,
-    style: 'mapbox://styles/mapbox/light-v11',
-    center: [props.center.lon, props.center.lat],
-    zoom: 9,
-    attributionControl: false,
-    scrollZoom: false,
-  })
-
-  const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '200px' })
-
-  map.on('load', () => {
-    map!.addSource('obs-mini', { type: 'geojson', data: buildGeoJSON() })
-
-    map!.addLayer({
+    map.addLayer({
       id: 'obs-mini-circles',
       type: 'circle',
       source: 'obs-mini',
@@ -80,7 +65,7 @@ onMounted(async () => {
       },
     })
 
-    map!.addLayer({
+    map.addLayer({
       id: 'center-marker',
       type: 'circle',
       source: 'obs-mini',
@@ -93,7 +78,7 @@ onMounted(async () => {
       },
     })
 
-    map!.addLayer({
+    map.addLayer({
       id: 'obs-mini-value-labels',
       type: 'symbol',
       source: 'obs-mini',
@@ -112,7 +97,7 @@ onMounted(async () => {
       },
     })
 
-    map!.addLayer({
+    map.addLayer({
       id: 'obs-mini-labels',
       type: 'symbol',
       source: 'obs-mini',
@@ -131,20 +116,20 @@ onMounted(async () => {
       },
     })
 
-    map!.on('mouseenter', 'obs-mini-circles', (e) => {
+    map.on('mouseenter', 'obs-mini-circles', (e) => {
       const feat = e.features?.[0]
       if (!feat) return
-      map!.getCanvas().style.cursor = 'pointer'
+      map.getCanvas().style.cursor = 'pointer'
       const p = feat.properties!
       const coords = (feat.geometry as GeoJSON.Point).coordinates as [number, number]
-      popup
+      popup!
         .setLngLat(coords)
         .setDOMContent(stationPopupNode(p.stationName, p.temperature, p.color))
-        .addTo(map!)
+        .addTo(map)
     })
-    map!.on('mouseleave', 'obs-mini-circles', () => {
-      map!.getCanvas().style.cursor = ''
-      popup.remove()
+    map.on('mouseleave', 'obs-mini-circles', () => {
+      map.getCanvas().style.cursor = ''
+      popup!.remove()
     })
 
     // Fit bounds to show all markers
@@ -157,52 +142,20 @@ onMounted(async () => {
         (b, c) => b.extend(c),
         new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]),
       )
-      map!.fitBounds(bounds, { padding: 50, maxZoom: 12 })
+      map.fitBounds(bounds, { padding: 50, maxZoom: 12 })
     }
-
-    mapReady.value = true
-  })
-})
-
-onUnmounted(() => {
-  map?.remove()
-  map = null
+  },
 })
 
 watch(
   nearestObs,
   () => {
+    const map = getMap()
     if (!mapReady.value || !map) return
     ;(map.getSource('obs-mini') as GeoJSONSource | undefined)?.setData(buildGeoJSON())
   },
   { deep: false },
 )
-
-function stationPopupNode(name: unknown, temperature: unknown, color: unknown) {
-  const root = document.createElement('div')
-  root.style.fontFamily = "'IBM Plex Sans', sans-serif"
-  root.style.padding = '5px 8px'
-
-  const title = document.createElement('div')
-  title.textContent = String(name ?? '')
-  title.style.fontSize = '12px'
-  title.style.fontWeight = '600'
-  title.style.color = '#1e2a3a'
-  title.style.marginBottom = '2px'
-  root.append(title)
-
-  if (temperature != null) {
-    const value = document.createElement('span')
-    value.textContent = `${temperature}°`
-    value.style.fontFamily = "'IBM Plex Mono', monospace"
-    value.style.fontSize = '15px'
-    value.style.fontWeight = '600'
-    value.style.color = String(color ?? '#1e2a3a')
-    root.append(value)
-  }
-
-  return root
-}
 </script>
 
 <template>
