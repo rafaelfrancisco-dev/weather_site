@@ -35,7 +35,26 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
   const forecastLoading = ref(false)
   const forecastErrorRaw = shallowRef<unknown>(null)
 
+  // The initial location's forecast is fetched during SSR (lazy async data is
+  // still awaited via onServerPrefetch on the server) so the first HTML — the
+  // one ISR caches and crawlers index — contains the forecast. Client-side
+  // navigations never run this fetch; they use the watch-based cache below.
+  const initialId = selectedLocationId.value
+  const { data: ssrForecast } = useAsyncData<ForecastResult | null>(
+    `ipma-forecast-ssr-${initialId ?? 'none'}`,
+    () => initialId == null
+      ? Promise.resolve(null)
+      : requestFetch<ForecastResult>(`/api/forecast/${initialId}`),
+    { lazy: true, immediate: import.meta.server && initialId != null, default: () => null }
+  )
+
   if (import.meta.client) {
+    // Seed the client cache with the server-rendered forecast before the watch
+    // below runs, so hydration reuses it instead of re-fetching.
+    if (initialId != null && ssrForecast.value) {
+      forecastCache.value[`ipma-forecast-${initialId}`] = ssrForecast.value
+    }
+
     let requestId = 0
     let controller: AbortController | null = null
 
@@ -87,10 +106,14 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
   }
 
   const forecast = computed(() => {
-    if (forecastPayload.value.locationId !== selectedLocationId.value) {
-      return null
+    if (forecastPayload.value.locationId === selectedLocationId.value && forecastPayload.value.forecast) {
+      return forecastPayload.value.forecast
     }
-    return forecastPayload.value.forecast
+    // SSR render path: the client-only watch never ran, read the async data.
+    if (initialId != null && selectedLocationId.value === initialId) {
+      return ssrForecast.value
+    }
+    return null
   })
 
   const forecastError = computed(() => forecastErrorRaw.value

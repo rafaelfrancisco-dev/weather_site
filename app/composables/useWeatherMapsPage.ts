@@ -307,9 +307,7 @@ watch(routeDistrictSlug, (slug) => {
   }
   const found = districtForSlug(slug)
   if (!found) {
-    focus.value = null
-    districtMapExpanded.value = false
-    return
+    throw createError({ statusCode: 404, statusMessage: 'District not found', fatal: true })
   }
   if (focus.value?.district !== found.name || focus.value?.group !== found.group) {
     districtMapExpanded.value = false

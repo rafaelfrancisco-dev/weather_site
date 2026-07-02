@@ -27,3 +27,6 @@ logs
 .vercel
 .env*
 /.claude/settings.json
+
+# Playwright MCP browser artifacts
+.playwright-mcp

@@ -29,6 +29,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
   <header :style="{ flex: 'none', height: '54px', background: props.headerBg, color: '#fff', display: 'flex', alignItems: 'center', gap: '16px', padding: '0 16px', zIndex: 30, position: 'relative' }">
     <button
       aria-label="Menu"
+      :aria-expanded="props.navOpen"
       :style="{ display: props.mobile ? 'inline-flex' : 'none', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', marginLeft: '-4px', flex: 'none', border: 'none', background: 'rgba(255,255,255,0.16)', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontSize: '17px', fontFamily: 'inherit' }"
       @click="emit('toggleNav')"
     >☰</button>
@@ -44,6 +45,8 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
       <input
         :value="props.query"
         :placeholder="props.t.search"
+        :aria-label="props.t.search"
+        type="search"
         style="width:200px; height:30px; border:none; border-radius:5px; background:rgba(255,255,255,0.14); color:#fff; padding:0 10px 0 30px; font-size:12.5px; font-family:inherit; outline:none;"
         @input="emit('update:query', ($event.target as HTMLInputElement).value)"
       />
@@ -52,10 +55,14 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
 
     <div style="display:flex; border:1px solid rgba(255,255,255,0.28); border-radius:5px; overflow:hidden;">
       <button
+        :aria-pressed="props.lang === 'en'"
+        aria-label="English"
         :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: props.lang === 'en' ? '#fff' : 'transparent', color: props.lang === 'en' ? props.headerBg : '#fff' }"
         @click="emit('setLang', 'en')"
       >EN</button>
       <button
+        :aria-pressed="props.lang === 'pt'"
+        aria-label="Português"
         :style="{ border: 'none', cursor: 'pointer', padding: '5px 11px', fontSize: '11.5px', fontWeight: 600, fontFamily: 'inherit', background: props.lang === 'pt' ? '#fff' : 'transparent', color: props.lang === 'pt' ? props.headerBg : '#fff' }"
         @click="emit('setLang', 'pt')"
       >PT</button>
@@ -64,6 +71,7 @@ const densityOptions: Density[] = ['Comfortable', 'Compact']
     <div style="position:relative;">
       <button
         aria-label="Settings"
+        :aria-expanded="settingsOpen"
         style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:none; background:rgba(255,255,255,0.14); border-radius:5px; color:#fff; cursor:pointer; font-size:14px;"
         @click="settingsOpen = !settingsOpen"
       >⚙</button>

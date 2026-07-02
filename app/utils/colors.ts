@@ -45,6 +45,8 @@ export function windBg(s: number): string {
   return `oklch(${0.98 - (s - 20) * 0.003} 0.012 255)`
 }
 
+// mapColors.ts's TEMP_STOPS is a hex port of these stops for Mapbox GL paint
+// expressions — keep both in sync when adjusting this palette.
 export function tempFill(t: number): string {
   if (t <= 6) return 'oklch(0.74 0.13 256)'
   if (t <= 10) return 'oklch(0.80 0.11 250)'

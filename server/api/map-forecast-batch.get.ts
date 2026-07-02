@@ -1,8 +1,11 @@
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const idsParam = typeof query.ids === 'string' ? query.ids : ''
+  // Only ids from the known location list may reach cachedForecast — every
+  // unknown id would otherwise mint its own Redis entry.
+  const known = new Set((await cachedLocations(event)).map(l => l.id))
   const ids = [...new Set(
-    idsParam.split(',').map(s => Number(s.trim())).filter(n => Number.isFinite(n) && n > 0)
+    idsParam.split(',').map(s => Number(s.trim())).filter(n => Number.isInteger(n) && known.has(n))
   )].slice(0, 80)
 
   const results = await Promise.all(

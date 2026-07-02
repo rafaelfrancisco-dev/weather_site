@@ -82,6 +82,18 @@ export default defineNuxtConfig({
   // what Nitro's vercel preset actually maps to a real ISR expiration —
   // the legacy shorthand silently drops maxAge and never time-based-revalidates.
   routeRules: {
+    // Baseline security headers on every response. CSP is deliberately absent
+    // for now: mapbox-gl needs worker-src blob: + 'wasm-unsafe-eval' and the
+    // inline-style approach needs style-src 'unsafe-inline', so a CSP should
+    // be drafted and verified on a preview deploy before enabling.
+    '/**': {
+      headers: {
+        'X-Frame-Options': 'DENY',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+      }
+    },
     '/location/**': { isr: 600 },
     '/api/locations': { isr: 86400 },
     '/api/districts': { isr: 86400 },

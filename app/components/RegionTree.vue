@@ -48,6 +48,8 @@ const { prefetch } = usePrefetchForecast()
       <input
         :value="props.query"
         :placeholder="props.t.search"
+        :aria-label="props.t.search"
+        type="search"
         style="width:100%; height:40px; border:1px solid oklch(0.88 0.008 255); border-radius:8px; background:oklch(0.98 0.003 255); padding:0 12px 0 34px; font-size:14px; font-family:inherit; outline:none; color:inherit; box-sizing:border-box;"
         @input="emit('update:query', ($event.target as HTMLInputElement).value)"
       />
@@ -78,6 +80,7 @@ const { prefetch } = usePrefetchForecast()
 
     <div v-for="region in props.tree" :key="region.id">
       <button
+        :aria-expanded="region.open"
         :style="{ width: '100%', display: 'flex', alignItems: 'center', gap: '7px', border: 'none', background: 'none', cursor: 'pointer', padding: props.mobile ? '13px 16px' : '9px 16px', fontFamily: 'inherit', fontSize: '13px', fontWeight: 600, color: 'oklch(0.30 0.012 255)', textAlign: 'left' }"
         @click="emit('toggleRegion', region.id)"
       >
