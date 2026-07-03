@@ -7,11 +7,13 @@ const props = defineProps<{
   t: Record<string, string>
   primary: string
   soft: string
+  loading?: boolean
 }>()
 
 const settings = useSettings()
 const dens = computed(() => densityStyles(settings.value.density))
 const observationsRoot = ref<HTMLElement | null>(null)
+const showLoading = computed(() => props.loading && props.observationGrid.stationCards.length === 0)
 
 function scrollObservationCardsToLatest() {
   if (!import.meta.client) return
@@ -33,11 +35,11 @@ watch(
   <div ref="observationsRoot">
     <div style="margin-bottom:12px;">
       <div style="font-size:13.5px; font-weight:600; color:var(--text-heading);">{{ props.t.obsTitle }}</div>
-      <div style="font-size:11.5px; color:var(--text-subtle); margin-top:3px;">{{ props.observationGrid.summary }}</div>
+      <div style="font-size:11.5px; color:var(--text-subtle); margin-top:3px;">{{ showLoading ? props.t.obsLoading : props.observationGrid.summary }}</div>
     </div>
 
     <!-- desktop grid -->
-    <div class="variant-desktop" style="border:1px solid oklch(0.86 0.01 255); border-radius:6px; overflow:hidden; background:#fff;">
+    <div v-if="!showLoading" class="variant-desktop" style="border:1px solid oklch(0.86 0.01 255); border-radius:6px; overflow:hidden; background:#fff;">
       <div style="overflow-x:auto;">
         <table style="border-collapse:collapse; width:100%; min-width:640px; table-layout:fixed;">
           <thead>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { districtSlugMatches, locationHref, parseLocationId, slugify } from '#shared/slug'
+import { districtSlugMatches, isValidLocationSlug, locationHref, parseLocationId, slugify } from '#shared/slug'
 
 describe('slugify', () => {
   it('strips diacritics', () => {
@@ -56,5 +56,33 @@ describe('districtSlugMatches — Açores/Azores special-case', () => {
   it('matches ordinary districts by their own slug', () => {
     expect(districtSlugMatches('Bragança', 'braganca')).toBe(true)
     expect(districtSlugMatches('Bragança', 'porto')).toBe(false)
+  })
+})
+
+describe('isValidLocationSlug', () => {
+  it('accepts a bare numeric id', () => {
+    expect(isValidLocationSlug('1110600')).toBe(true)
+  })
+
+  it('accepts an id with a cosmetic slug suffix', () => {
+    expect(isValidLocationSlug('1110600-lisboa')).toBe(true)
+    expect(isValidLocationSlug('1010500-vila-nova-de-gaia')).toBe(true)
+  })
+
+  it('rejects values without a leading numeric id', () => {
+    expect(isValidLocationSlug('lisboa')).toBe(false)
+    expect(isValidLocationSlug('-1110600')).toBe(false)
+  })
+
+  it('rejects values with characters outside the allowlist', () => {
+    expect(isValidLocationSlug('1110600-lisboa/../evil')).toBe(false)
+    expect(isValidLocationSlug('1110600-<script>')).toBe(false)
+    expect(isValidLocationSlug('1110600-Lisboa')).toBe(false)
+    expect(isValidLocationSlug('1110600 lisboa')).toBe(false)
+  })
+
+  it('rejects empty or absurdly long input', () => {
+    expect(isValidLocationSlug('')).toBe(false)
+    expect(isValidLocationSlug(`1110600-${'a'.repeat(100)}`)).toBe(false)
   })
 })

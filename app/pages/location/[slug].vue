@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { strings } from '~/utils/i18n'
 import { accentColors } from '~/utils/colors'
-import { locationHref, parseLocationId } from '#shared/slug'
+import { LAST_LOCATION_COOKIE, locationHref, parseLocationId, slugify } from '#shared/slug'
 
 const route = useRoute()
 const tab = ref<'forecast' | 'obs'>('forecast')
 
 const settings = useSettings()
-const { locations, bootstrapped } = useLocationsData()
+const { locations, bootstrapped, observationsLoading } = useLocationsData()
 
 const lang = computed(() => settings.value.lang)
 const t = computed(() => strings(lang.value))
@@ -48,6 +48,17 @@ watchEffect(() => {
     settings.value.lastLocationId = id.value
   }
 })
+
+// Client-only: a server-side write here would add `Set-Cookie` to
+// ISR-cached /location/** responses and break edge caching for everyone.
+if (import.meta.client) {
+  const lastLocationCookie = useCookie(LAST_LOCATION_COOKIE, { maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', path: '/' })
+  watchEffect(() => {
+    if (location.value) {
+      lastLocationCookie.value = `${location.value.id}-${slugify(location.value.name)}`
+    }
+  })
+}
 
 const {
   locationMeta,
@@ -90,7 +101,7 @@ useSeoMeta({
     </div>
 
     <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :t="t" />
-    <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" :primary="c.primary" :soft="c.soft" />
+    <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" :primary="c.primary" :soft="c.soft" :loading="observationsLoading" />
   </template>
 </template>
 

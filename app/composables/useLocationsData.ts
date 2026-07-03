@@ -18,44 +18,59 @@ interface Bootstrap {
   districts: JSDistrict[]
   warnings: JSWeatherWarning[]
   weatherTypeDescriptions: JSLookupDescription[]
-  stations: JSStation[]
-  observations: JSStationObservation[]
 }
 
-// Matches cachedObservations' maxAge (server/utils/ipma.ts) — the tightest
-// freshness window among the bootstrapped data — so a tab left open on a
-// location page doesn't drift past what the server itself would consider stale.
-const REVALIDATE_AFTER_MS = 10 * 60 * 1000
+// Matches cachedWarnings' maxAge (server/utils/ipma.ts) — the freshness cap
+// for the rest of the bootstrap (locations/districts/warnings/weather-types)
+// — so a tab left open doesn't drift past what the server itself would
+// consider stale.
+const REVALIDATE_BOOTSTRAP_AFTER_MS = 60 * 60 * 1000
+// Matches cachedObservations' maxAge (server/utils/ipma.ts) — observations
+// are the most time-sensitive data on the site, so they get a tighter window.
+const REVALIDATE_OBSERVATIONS_AFTER_MS = 10 * 60 * 1000
 let revalidationWired = false
 
 export function useLocationsData() {
   const requestFetch = useRequestFetch()
   const { data, error, refresh } = useAsyncData<Bootstrap>('ipma-bootstrap', async () => {
-    const [locations, districts, warnings, weatherTypeDescriptions, observations] = await Promise.all([
+    const [locations, districts, warnings, weatherTypeDescriptions] = await Promise.all([
       requestFetch<JSLocation[]>('/api/locations'),
       requestFetch<JSDistrict[]>('/api/districts'),
       requestFetch<JSWeatherWarning[]>('/api/warnings'),
-      requestFetch<JSLookupDescription[]>('/api/weather-types'),
-      requestFetch<ObservationsPayload>('/api/observations')
+      requestFetch<JSLookupDescription[]>('/api/weather-types')
     ])
-    return { locations, districts, warnings, weatherTypeDescriptions, stations: observations.stations, observations: observations.observations }
+    return { locations, districts, warnings, weatherTypeDescriptions }
   })
 
+  const { data: observationsData, status: observationsStatus, refresh: refreshObservations } =
+    useAsyncData<ObservationsPayload | null>('ipma-observations', () => requestFetch<ObservationsPayload>('/api/observations'), {
+      server: false,
+      lazy: true,
+      default: () => null
+    })
+
   // useLocationsData() is called from several components/pages sharing the
-  // same 'ipma-bootstrap' asyncData key; wire the revalidation listener once
-  // per browser session (module-level guard) rather than once per caller.
-  // Best-effort: refresh() errors are swallowed rather than surfaced, since
-  // the app should keep showing the last-known-good data (see the
+  // same asyncData keys; wire the revalidation listener once per browser
+  // session (module-level guard) rather than once per caller. Best-effort:
+  // refresh() errors are swallowed rather than surfaced, since the app
+  // should keep showing the last-known-good data (see the
   // bootstrapError/!bootstrapped guard in layouts/default.vue) instead of
   // blanking out or logging noise for a transient background refetch.
   if (import.meta.client && !revalidationWired) {
     revalidationWired = true
-    let lastFetchedAt = Date.now()
+    let lastBootstrapFetchedAt = Date.now()
+    let lastObservationsFetchedAt = Date.now()
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible') return
-      if (Date.now() - lastFetchedAt < REVALIDATE_AFTER_MS) return
-      lastFetchedAt = Date.now()
-      refresh().catch(() => {})
+      const now = Date.now()
+      if (now - lastBootstrapFetchedAt >= REVALIDATE_BOOTSTRAP_AFTER_MS) {
+        lastBootstrapFetchedAt = now
+        refresh().catch(() => {})
+      }
+      if (now - lastObservationsFetchedAt >= REVALIDATE_OBSERVATIONS_AFTER_MS) {
+        lastObservationsFetchedAt = now
+        refreshObservations().catch(() => {})
+      }
     })
   }
 
@@ -63,8 +78,9 @@ export function useLocationsData() {
   const districts = computed(() => data.value?.districts ?? [])
   const warnings = computed(() => data.value?.warnings ?? [])
   const weatherTypeDescriptions = computed(() => data.value?.weatherTypeDescriptions ?? [])
-  const stations = computed(() => data.value?.stations ?? [])
-  const observations = computed(() => data.value?.observations ?? [])
+  const stations = computed(() => observationsData.value?.stations ?? [])
+  const observations = computed(() => observationsData.value?.observations ?? [])
+  const observationsLoading = computed(() => observationsStatus.value === 'pending')
   const bootstrapped = computed(() => data.value != null)
   const bootstrapError = computed(() => error.value ? (error.value.message ?? String(error.value)) : null)
 
@@ -87,6 +103,7 @@ export function useLocationsData() {
     warnings,
     stations,
     observations,
+    observationsLoading,
     bootstrapped,
     bootstrapError,
     districtMap,

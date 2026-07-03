@@ -58,7 +58,7 @@ export function useWeatherMapsPage() {
       if (!max || new Date(obs.time).getTime() > new Date(max).getTime()) return obs.time
       return max
     }, null)
-    return latest ? dateTimeLabel(new Date(latest), lang.value) : dateTimeLabel(new Date(), lang.value)
+    return latest ? dateTimeLabel(new Date(latest), lang.value) : '—'
   })
 
   const warningsSummary = computed<WarningSummary[]>(() =>

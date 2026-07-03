@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
 import { accentColors } from '~/utils/colors'
+import { LAST_LOCATION_COOKIE } from '#shared/slug'
 
 const props = defineProps<{ error: NuxtError }>()
 
@@ -17,6 +18,9 @@ const detail = computed(() => is404.value
   : (props.error.statusMessage ?? (pt.value ? 'Tente novamente dentro de momentos.' : 'Please try again in a moment.')))
 
 function goHome() {
+  // A stale cookie pointing at a location that no longer exists (e.g. it was
+  // removed upstream) would otherwise loop `/ → /location/{id} → 404` forever.
+  useCookie(LAST_LOCATION_COOKIE, { path: '/' }).value = null
   clearError({ redirect: '/' })
 }
 </script>

@@ -22,7 +22,6 @@ export default defineNuxtConfig({
       mapboxToken: ''  // set via NUXT_PUBLIC_MAPBOX_TOKEN env var
     }
   },
-  css: ['mapbox-gl/dist/mapbox-gl.css'],
   devtools: { enabled: true },
   app: {
     head: {
@@ -42,8 +41,7 @@ export default defineNuxtConfig({
       'IBM Plex Mono': [400, 500, 600]
     },
     display: 'swap',
-    preconnect: true,
-    download: false
+    download: true
   },
   robots: {
     mergeWithRobotsTxtPath: false
@@ -93,28 +91,39 @@ export default defineNuxtConfig({
   // Don't shorten these without reconsidering the write-volume impact.
   //
   // /api/observations is the exception, at 600 rather than 3600: station
-  // observations are fetched client-side only (useLocationsData.ts), never
-  // baked into an ISR-rendered page, so a shorter window doesn't multiply
-  // per-deploy ISR writes the way /location/**'s would. Matched to
-  // cachedObservations' maxAge (server/utils/ipma.ts) — keep both in sync.
+  // observations are fetched client-side only, via their own 'ipma-observations'
+  // useAsyncData in useLocationsData.ts (split out from the rest of the
+  // 'ipma-bootstrap' fetch so observations — ~87% of the old combined payload —
+  // don't ship on every page view), never baked into an ISR-rendered page, so
+  // a shorter window doesn't multiply per-deploy ISR writes the way
+  // /location/**'s would. Matched to cachedObservations' maxAge
+  // (server/utils/ipma.ts) and to REVALIDATE_OBSERVATIONS_AFTER_MS in
+  // useLocationsData.ts — keep all three in sync.
+  //
+  // `/` has no routeRule: server/routes/index.get.ts (a Nitro file route)
+  // redirects hard loads straight to the last-visited location via a client
+  // cookie, with its own `Cache-Control: no-store` since the response varies
+  // per-cookie and must never be edge-cached.
   routeRules: {
     // Baseline security headers on every response. The CSP ships as
     // Report-Only for now: it surfaces violations in the console/reports
     // without blocking anything, so the policy can be tuned on real traffic
     // before flipping it to an enforced Content-Security-Policy. Directives:
     // worker-src/child-src blob: + 'wasm-unsafe-eval' for mapbox-gl v3,
-    // script-src 'unsafe-inline' for Nuxt's window.__NUXT__ payload,
-    // style-src 'unsafe-inline' for the inline-style approach, and the
-    // Google Fonts hosts because googleFonts.download is false.
+    // script-src 'unsafe-inline' for Nuxt's window.__NUXT__ payload, and
+    // style-src 'unsafe-inline' for the inline-style approach. Fonts are
+    // self-hosted (googleFonts.download: true) so no Google Fonts hosts
+    // are needed in style-src/font-src.
     '/**': {
       headers: {
         'X-Frame-Options': 'DENY',
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-        'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://www.ipma.pt https://api.mapbox.com; worker-src 'self' blob:; child-src blob:; connect-src 'self' https://api.mapbox.com https://events.mapbox.com; base-uri 'self'; form-action 'self'"
+        'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://www.ipma.pt https://api.mapbox.com; worker-src 'self' blob:; child-src blob:; connect-src 'self' https://api.mapbox.com https://events.mapbox.com; base-uri 'self'; form-action 'self'"
       }
     },
+    '/fonts/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
     '/location/**': { isr: 3600 },
     '/api/locations': { isr: 86400 },
     '/api/districts': { isr: 86400 },

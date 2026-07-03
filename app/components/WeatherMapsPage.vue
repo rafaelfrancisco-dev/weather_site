@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { WarningLevel } from '~/utils/colors'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import '~/assets/css/weather-maps-page.css'
 
 const {

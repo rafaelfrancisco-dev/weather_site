@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { locationHref } from '#shared/slug'
 
+// Hard loads of `/` are handled by server/routes/index.get.ts (a Nitro file
+// route, which takes precedence over this page) before Vue SSR ever boots.
+// This page only serves client-side router navigations to `/` (currently
+// only from app/error.vue's goHome()).
 const settings = useSettings()
 const { locations, bootstrapped } = useLocationsData()
 const readyToRedirect = ref(false)
