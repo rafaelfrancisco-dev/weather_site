@@ -127,11 +127,6 @@ export function dirDeg(dir: string): number {
   return DIR_DEG[dir] ?? 0
 }
 
-// Whether it is currently daytime (7am–8pm local)
-export function isNowDaytime(): boolean {
-  return new Date().getHours() >= 7 && new Date().getHours() < 20
-}
-
 // Classify lat/lon into geographic group for Portugal
 export function geoGroup(lat: number, lon: number): MapGroup {
   if (lat < 34 && lon < -15) return 'madeira'

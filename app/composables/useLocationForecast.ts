@@ -1,5 +1,5 @@
 import type { Lang } from '~/utils/i18n'
-import { weatherIconUrl } from '~/utils/format'
+import { wallClockMs, weatherIconUrl } from '~/utils/format'
 import { accentColors } from '~/utils/colors'
 import type { JSAggregateForecastDay, JSHourlyForecastPeriod } from '#shared/ipma-types'
 import {
@@ -24,6 +24,7 @@ interface ForecastPayload {
 export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: Ref<Record<string, string>>) {
   const { locations, districtMap, warningsByArea, stations, observations, labelFor } = useLocationsData()
   const settings = useSettings()
+  const now = useNow()
   const requestFetch = useRequestFetch()
   const forecastCache = useState<Record<string, ForecastResult>>('ipma-forecast-client-cache', () => ({}))
 
@@ -134,15 +135,19 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     return warningsByArea.value.get(selectedLocation.value.warningAreaID) ?? []
   })
 
-  const warningBanner = computed(() => buildWarningBanner(locationWarnings.value, lang.value, t.value.warnings))
+  const warningBanner = computed(() => buildWarningBanner(locationWarnings.value, lang.value, t.value.warnings, now.value))
 
   const dailyRows = computed(() => forecast.value
     ? buildDailyRows(forecast.value.daily, lang.value, labelFor.value, weatherIconUrl)
     : []
   )
 
+  // IPMA's hourly forecastDate is Lisbon-anchored for every location regardless
+  // of actual region (verified: Azores locations return the same timestamps as
+  // mainland ones), so the wall-clock zone here is always Europe/Lisbon, not
+  // per-location.
   const hourlyGrid = computed(() => forecast.value
-    ? buildHourlyGrid(forecast.value.periods, lang.value, t.value, labelFor.value, weatherIconUrl, c.value.primary, settings.value.hourlyBars)
+    ? buildHourlyGrid(forecast.value.periods, lang.value, t.value, labelFor.value, weatherIconUrl, c.value.primary, settings.value.hourlyBars, wallClockMs(now.value, 'Europe/Lisbon'))
     : { dayHeaders: [], timeCols: [], hourRows: [], hourDays: [] }
   )
 

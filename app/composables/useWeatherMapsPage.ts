@@ -3,8 +3,8 @@ import type { FcPoint, MapGroup, MapPick, WarnEntry } from '#shared/map-types'
 import { strings } from '~/utils/i18n'
 import { accentColors, levelColor, levelRank } from '~/utils/colors'
 import type { WarningLevel } from '~/utils/colors'
-import { dateTimeLabel } from '~/utils/format'
-import { FIRE, iconSvg, isNowDaytime } from '~/utils/maps'
+import { dateTimeLabel, isDaytimeAtWallMs, wallClockMs } from '~/utils/format'
+import { FIRE, iconSvg } from '~/utils/maps'
 import { districtWarningEntries } from '~/utils/mapDerived'
 import { useMapLayers } from '~/composables/weather-maps/useMapLayers'
 import { useDistrictFocus } from '~/composables/weather-maps/useDistrictFocus'
@@ -23,10 +23,12 @@ interface WarningSummary {
 export function useWeatherMapsPage() {
   const settings = useSettings()
   const router = useRouter()
+  const now = useNow()
 
   const lang = computed(() => settings.value.lang)
   const t = computed(() => strings(lang.value))
   const c = computed(() => accentColors(settings.value.accent))
+  const isDaytime = computed(() => isDaytimeAtWallMs(wallClockMs(now.value, 'Europe/Lisbon')))
 
   const {
     locations,
@@ -40,7 +42,7 @@ export function useWeatherMapsPage() {
   const forecastData = computed<FcPoint[]>(() => rawForecast.value ?? [])
 
   const districtWarnings = computed<Record<string, WarnEntry>>(() => {
-    return districtWarningEntries(locations.value, districtMap.value, warningsByArea.value)
+    return districtWarningEntries(locations.value, districtMap.value, warningsByArea.value, new Date(now.value))
   })
 
   const { activeLayer, layerDefs, activeLayerDef, setLayer, legendTextColor } = useMapLayers(lang, t)
@@ -103,7 +105,7 @@ export function useWeatherMapsPage() {
     handlePick,
     iconSvg,
     isCapitalLoc,
-    isNowDaytime,
+    isDaytime,
     lang,
     latestObservation,
     layerDefs,

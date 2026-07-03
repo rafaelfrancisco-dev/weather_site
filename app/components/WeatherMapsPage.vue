@@ -22,7 +22,7 @@ const {
   handlePick,
   iconSvg,
   isCapitalLoc,
-  isNowDaytime,
+  isDaytime,
   lang,
   latestObservation,
   layerDefs,
@@ -191,7 +191,7 @@ useSeoMeta({ title: 'Weather maps' })
               <span class="location-row__icon">
                 <img
                   v-if="locationData(loc)?.wt != null"
-                  :src="iconSvg(locationData(loc)!.wt!, isNowDaytime())"
+                  :src="iconSvg(locationData(loc)!.wt!, isDaytime)"
                   width="24"
                   height="24"
                   alt=""

@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { buildDailyRows, buildHourlyGrid } from '~/utils/forecastTransform'
+import { wallParseMs } from '~/utils/format'
 import type { JSAggregateForecastDay, JSHourlyForecastPeriod } from '#shared/ipma-types'
 
 const labelFor = (id: number) => `Type ${id}`
@@ -75,13 +76,7 @@ describe('buildDailyRows', () => {
 
 describe('buildHourlyGrid', () => {
   const t = { weather: 'Weather', temp: 'Temp', feels: 'Feels', precipProb: 'Precip %', wind: 'Wind', windSpd: 'Wind', humidity: 'Humidity' }
-
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+  const anyNow = wallParseMs('2026-07-02T12:00:00')
 
   it('groups periods into day headers with correct spans', () => {
     const periods = [
@@ -89,7 +84,7 @@ describe('buildHourlyGrid', () => {
       period({ forecastDate: '2026-07-02T13:00:00' }),
       period({ forecastDate: '2026-07-03T10:00:00' }),
     ]
-    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false)
+    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false, anyNow)
     expect(grid.dayHeaders).toHaveLength(2)
     expect(grid.dayHeaders[0].span).toBe(2)
     expect(grid.dayHeaders[1].span).toBe(1)
@@ -100,27 +95,27 @@ describe('buildHourlyGrid', () => {
       period({ forecastDate: '2026-07-02T10:00:00' }),
       period({ forecastDate: '2026-07-03T10:00:00' }),
     ]
-    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false)
+    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false, anyNow)
     expect(grid.timeCols[0].sep).toBe('2px solid oklch(0.85 0.01 255)')
     expect(grid.timeCols[1].sep).toBe('2px solid oklch(0.85 0.01 255)')
   })
 
   it('flags the column closest to now as isCurrent', () => {
-    vi.setSystemTime(new Date('2026-07-02T13:05:00'))
+    const nowWallMs = wallParseMs('2026-07-02T13:05:00')
     const periods = [
       period({ forecastDate: '2026-07-02T10:00:00' }),
       period({ forecastDate: '2026-07-02T13:00:00' }),
       period({ forecastDate: '2026-07-02T16:00:00' }),
     ]
-    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false)
+    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false, nowWallMs)
     expect(grid.timeCols.map(c => c.isCurrent)).toEqual([false, true, false])
     expect(grid.hourDays[0].cells.map(c => c.isCurrent)).toEqual([false, true, false])
   })
 
   it('only shows precipitation bars when showBars is true and probability is positive', () => {
     const periods = [period({ precipitationProbability: 40 })]
-    const withBars = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', true)
-    const withoutBars = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false)
+    const withBars = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', true, anyNow)
+    const withoutBars = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false, anyNow)
     const precipRowWith = withBars.hourRows.find(r => r.label === t.precipProb)!
     const precipRowWithout = withoutBars.hourRows.find(r => r.label === t.precipProb)!
     expect(precipRowWith.cells[0].showBar).toBe(true)

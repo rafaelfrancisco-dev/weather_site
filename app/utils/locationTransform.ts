@@ -75,6 +75,7 @@ export function buildLocationTree(
   openMap: Record<string, boolean>,
   query: string,
   lang: Lang,
+  now: number,
 ): TreeGroup[] {
   const q = query.trim().toLowerCase()
   const groups = new Map<string, { name: string, tier: number, locs: JSLocation[] }>()
@@ -100,7 +101,7 @@ export function buildLocationTree(
     let warnCount = 0
 
     const treeLocs: TreeLocation[] = locs.map((loc) => {
-      const warnings = (warningsByArea.get(loc.warningAreaID) || []).filter(w => isWarningActive(w))
+      const warnings = (warningsByArea.get(loc.warningAreaID) || []).filter(w => isWarningActive(w, new Date(now)))
       let lvl: WarningLevel = 'green'
       let rank = 0
       for (const w of warnings) {
@@ -179,8 +180,8 @@ export interface WarningBanner {
   } | null
 }
 
-export function buildWarningBanner(warnings: JSWeatherWarning[], lang: Lang, warningsLabel: string): WarningBanner {
-  const active = warnings.filter(w => isWarningActive(w) && normalizeLevel(w) !== 'green')
+export function buildWarningBanner(warnings: JSWeatherWarning[], lang: Lang, warningsLabel: string, now: number): WarningBanner {
+  const active = warnings.filter(w => isWarningActive(w, new Date(now)) && normalizeLevel(w) !== 'green')
   if (active.length === 0) return { hasWarn: false, banner: null }
 
   let top = active[0]

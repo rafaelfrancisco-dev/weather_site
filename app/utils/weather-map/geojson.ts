@@ -20,7 +20,7 @@ import {
   mapboxWaveColor,
 } from '~/utils/mapColors'
 import { latestStationTemperatures } from '~/utils/mapDerived'
-import { isNowDaytime, SEA_POINTS } from '~/utils/maps'
+import { SEA_POINTS } from '~/utils/maps'
 import { weatherIconId } from '~/utils/weather-map/icons'
 
 export interface LocationForecastCacheEntry {
@@ -98,6 +98,7 @@ export function buildLocationsGeoJSON(options: {
   locationForecastCache: Map<number, LocationForecastCacheEntry>
   districtTempByName: Record<string, number>
   nationalAvgTemp: number
+  isDaytime: boolean
 }): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
@@ -116,7 +117,7 @@ export function buildLocationsGeoJSON(options: {
           name: loc.name,
           tempLabel: hasForecast ? `${fc.tmax}°` : '',
           tempTextColor: hasForecast ? mapboxTempTextColor(fc.tmax!) : '#1e2a3a',
-          iconId: hasForecast && fc.wt != null ? weatherIconId(fc.wt, isNowDaytime()) : '',
+          iconId: hasForecast && fc.wt != null ? weatherIconId(fc.wt, options.isDaytime) : '',
           clusterTemp,
         },
       }

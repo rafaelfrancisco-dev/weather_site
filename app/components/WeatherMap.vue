@@ -4,6 +4,7 @@ import type { FcPoint, MapFocus, MapLayer, MapPick } from '#shared/map-types'
 import { mapboxAccentColor } from '~/utils/mapColors'
 import { districtWarningEntries } from '~/utils/mapDerived'
 import { CAPITALS } from '~/utils/maps'
+import { isDaytimeAtWallMs, wallClockMs } from '~/utils/format'
 import {
   buildCapitalsGeoJSON,
   buildDistrictDataGeoJSON,
@@ -37,7 +38,9 @@ const props = defineProps<{
 const emit = defineEmits<{ pick: [pick: MapPick] }>()
 
 const settings = useSettings()
+const now = useNow()
 const { locations, stations, observations, warningsByArea, districtMap } = useLocationsData()
+const isDaytime = computed(() => isDaytimeAtWallMs(wallClockMs(now.value, 'Europe/Lisbon')))
 
 const mapEl = ref<HTMLDivElement | null>(null)
 
@@ -60,7 +63,7 @@ const { mapReady, noToken, getMap } = useMapboxMap({
 })
 
 const districtWarnings = computed<Record<string, { type: string; level: string }>>(() => {
-  return districtWarningEntries(locations.value, districtMap.value, warningsByArea.value)
+  return districtWarningEntries(locations.value, districtMap.value, warningsByArea.value, new Date(now.value))
 })
 
 const districtTempByName = computed<Record<string, number>>(() => {
@@ -93,6 +96,7 @@ function locationsSourceData() {
     locationForecastCache,
     districtTempByName: districtTempByName.value,
     nationalAvgTemp: nationalAvgTemp.value,
+    isDaytime: isDaytime.value,
   })
 }
 

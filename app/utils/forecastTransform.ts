@@ -3,7 +3,7 @@ import type {
   JSHourlyForecastPeriod,
 } from '#shared/ipma-types'
 import { precipBg, precipColor, tempBg, tempColor, uvColor, windBg } from '~/utils/colors'
-import { dateKey, hourLabel, isDaytime, windArrowDeg } from '~/utils/format'
+import { dateKey, hourLabel, isDaytime, wallParseMs, windArrowDeg } from '~/utils/format'
 import type { Lang } from '~/utils/i18n'
 import { monthShort, weekday } from '~/utils/i18n'
 
@@ -97,6 +97,7 @@ export function buildHourlyGrid(
   iconUrl: (weatherTypeID: number, day: boolean) => string | null,
   primaryColor: string,
   showBars: boolean,
+  nowWallMs: number,
 ): HourlyGrid {
   const days = groupPeriodsByDay(periods, 3)
   const flat = days.flat()
@@ -113,11 +114,10 @@ export function buildHourlyGrid(
     return { span: group.length, label: `${weekday(d, lang)} ${d.getDate()} ${monthShort(d, lang)}` }
   })
 
-  const nowMs = Date.now()
   let activeColIndex = flat.length > 0 ? 0 : -1
   let minDiff = Infinity
   for (let i = 0; i < flat.length; i++) {
-    const diff = Math.abs(new Date(flat[i].forecastDate).getTime() - nowMs)
+    const diff = Math.abs(wallParseMs(flat[i].forecastDate) - nowWallMs)
     if (diff < minDiff) {
       minDiff = diff
       activeColIndex = i

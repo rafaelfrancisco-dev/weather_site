@@ -9,6 +9,7 @@ const { query } = useNavigation()
 const open = ref<Record<string, boolean>>({})
 
 const settings = useSettings()
+const now = useNow()
 const {
   locations,
   districtMap,
@@ -32,7 +33,8 @@ const tree = computed(() => buildLocationTree(
   selectedId.value,
   open.value,
   query.value,
-  settings.value.lang
+  settings.value.lang,
+  now.value
 ))
 
 function toggleRegion(id: string) {
