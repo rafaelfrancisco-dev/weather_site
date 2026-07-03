@@ -12,7 +12,9 @@ function station(overrides: Partial<JSStation> = {}): JSStation {
 
 function observation(overrides: Partial<JSStationObservation> = {}): JSStationObservation {
   return {
-    time: '2026-07-02T12:00:00Z',
+    // Real IPMA observation times have no zone info (e.g. "2026-07-01T17:00")
+    // but represent UTC instants — see observationTimeKey.
+    time: '2026-07-02T12:00',
     stationID: 1,
     temperature: 22,
     humidity: 60,
@@ -56,13 +58,20 @@ describe('buildObservationGrid', () => {
   })
 
   it('keeps at most the 7 most recent distinct time columns', () => {
-    const times = Array.from({ length: 10 }, (_, i) => `2026-07-02T${String(i + 5).padStart(2, '0')}:00:00Z`)
+    const times = Array.from({ length: 10 }, (_, i) => `2026-07-02T${String(i + 5).padStart(2, '0')}:00`)
     const observations = times.map(time => observation({ time }))
     const grid = buildObservationGrid([station()], observations, CENTER.lat, CENTER.lon, 'en', t, primaryColor, softColor)
     expect(grid.timeCols).toHaveLength(7)
     // Most recent (oldest-to-newest, ascending) column should be the last of the 10 hours;
     // 14:00 UTC is 15:00 in Europe/Lisbon during July (DST).
     expect(grid.timeCols[grid.timeCols.length - 1].label).toBe('15:00')
+  })
+
+  it('treats an unzoned observation time as UTC, not local time', () => {
+    // Tests run TZ=Europe/Lisbon; 15:00 UTC is 16:00 local during July (DST).
+    // Before the fix, the unzoned string was parsed as already-local 15:00.
+    const grid = buildObservationGrid([station()], [observation({ time: '2026-07-02T15:00' })], CENTER.lat, CENTER.lon, 'en', t, primaryColor, softColor)
+    expect(grid.timeCols[0].label).toBe('16:00')
   })
 
   it('renders a dash placeholder cell for a missing metric value', () => {

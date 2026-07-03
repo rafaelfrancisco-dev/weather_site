@@ -50,9 +50,14 @@ export const cachedStations = defineCachedFunction(
   { name: 'ipma', getKey: () => 'stations', maxAge: 86400 }
 )
 
+// maxAge is tighter than the other cached functions (600 vs 3600): station
+// observations are the most time-sensitive data on the site, and IPMA's own
+// publication lag (~1h) already stacks on top of whatever we cache here, so
+// this layer shouldn't add a second hour on top of that. Matched by the
+// `/api/observations` isr window in nuxt.config.ts — keep both in sync.
 export const cachedObservations = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).stationObservations(),
-  { name: 'ipma', getKey: () => 'observations', maxAge: 3600 }
+  { name: 'ipma', getKey: () => 'observations', maxAge: 600 }
 )
 
 export const cachedForecast = defineCachedFunction(

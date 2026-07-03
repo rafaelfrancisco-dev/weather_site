@@ -22,9 +22,15 @@ interface Bootstrap {
   observations: JSStationObservation[]
 }
 
+// Matches cachedObservations' maxAge (server/utils/ipma.ts) — the tightest
+// freshness window among the bootstrapped data — so a tab left open on a
+// location page doesn't drift past what the server itself would consider stale.
+const REVALIDATE_AFTER_MS = 10 * 60 * 1000
+let revalidationWired = false
+
 export function useLocationsData() {
   const requestFetch = useRequestFetch()
-  const { data, error } = useAsyncData<Bootstrap>('ipma-bootstrap', async () => {
+  const { data, error, refresh } = useAsyncData<Bootstrap>('ipma-bootstrap', async () => {
     const [locations, districts, warnings, weatherTypeDescriptions, observations] = await Promise.all([
       requestFetch<JSLocation[]>('/api/locations'),
       requestFetch<JSDistrict[]>('/api/districts'),
@@ -34,6 +40,24 @@ export function useLocationsData() {
     ])
     return { locations, districts, warnings, weatherTypeDescriptions, stations: observations.stations, observations: observations.observations }
   })
+
+  // useLocationsData() is called from several components/pages sharing the
+  // same 'ipma-bootstrap' asyncData key; wire the revalidation listener once
+  // per browser session (module-level guard) rather than once per caller.
+  // Best-effort: refresh() errors are swallowed rather than surfaced, since
+  // the app should keep showing the last-known-good data (see the
+  // bootstrapError/!bootstrapped guard in layouts/default.vue) instead of
+  // blanking out or logging noise for a transient background refetch.
+  if (import.meta.client && !revalidationWired) {
+    revalidationWired = true
+    let lastFetchedAt = Date.now()
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastFetchedAt < REVALIDATE_AFTER_MS) return
+      lastFetchedAt = Date.now()
+      refresh().catch(() => {})
+    })
+  }
 
   const locations = computed(() => data.value?.locations ?? [])
   const districts = computed(() => data.value?.districts ?? [])

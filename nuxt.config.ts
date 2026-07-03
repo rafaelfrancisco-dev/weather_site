@@ -91,6 +91,12 @@ export default defineNuxtConfig({
   // matched to cachedWarnings' maxAge (server/utils/ipma.ts) — warnings
   // freshness is capped at 1h as a deliberate cost/freshness tradeoff.
   // Don't shorten these without reconsidering the write-volume impact.
+  //
+  // /api/observations is the exception, at 600 rather than 3600: station
+  // observations are fetched client-side only (useLocationsData.ts), never
+  // baked into an ISR-rendered page, so a shorter window doesn't multiply
+  // per-deploy ISR writes the way /location/**'s would. Matched to
+  // cachedObservations' maxAge (server/utils/ipma.ts) — keep both in sync.
   routeRules: {
     // Baseline security headers on every response. The CSP ships as
     // Report-Only for now: it surfaces violations in the console/reports
@@ -114,7 +120,7 @@ export default defineNuxtConfig({
     '/api/districts': { isr: 86400 },
     '/api/weather-types': { isr: 86400 },
     '/api/warnings': { isr: 3600 },
-    '/api/observations': { isr: 3600 },
+    '/api/observations': { isr: 600 },
     '/api/forecast/**': { isr: 3600 },
     '/api/map-forecast': { isr: 3600 },
     '/maps': { isr: 3600 },

@@ -93,8 +93,14 @@ function round1(v: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(1)
 }
 
+// IPMA station observation times come back with no zone info (e.g.
+// "2026-07-01T17:00") but represent UTC instants. `new Date()` would parse an
+// unqualified string as local time, so append :00Z to make the UTC-ness
+// explicit before parsing — this makes timeKeys true instants and lets
+// observationTimeLabel's hourLabel() below yield the correct local hour.
 function observationTimeKey(value: string): string {
-  return new Date(value).toISOString()
+  const hasZoneInfo = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value)
+  return new Date(hasZoneInfo ? value : `${value}:00Z`).toISOString()
 }
 
 function observationTimeLabel(value: string): string {
