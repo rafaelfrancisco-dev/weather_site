@@ -54,7 +54,7 @@ export function buildDailyRows(
   })
 }
 
-function groupPeriodsByDay(periods: JSHourlyForecastPeriod[], maxDays: number): JSHourlyForecastPeriod[][] {
+export function groupPeriodsByDay(periods: JSHourlyForecastPeriod[], maxDays: number): JSHourlyForecastPeriod[][] {
   const map = new Map<string, JSHourlyForecastPeriod[]>()
   for (const p of periods) {
     const key = dateKey(p.forecastDate)

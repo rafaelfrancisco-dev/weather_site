@@ -74,6 +74,33 @@ describe('buildObservationGrid', () => {
     expect(grid.timeCols[0].label).toBe('16:00')
   })
 
+  it('builds chart series aligned to the grid stations and time columns', () => {
+    const stations = [station(), station({ id: 2, name: 'Station 2', longitude: CENTER.lon + 0.5 })]
+    const observations = [
+      observation({ stationID: 1, time: '2026-07-02T11:00', temperature: 20 }),
+      observation({ stationID: 1, time: '2026-07-02T12:00', temperature: 22 }),
+      observation({ stationID: 2, time: '2026-07-02T12:00', temperature: 25, pressure: null }),
+    ]
+    const grid = buildObservationGrid(stations, observations, CENTER.lat, CENTER.lon, 'en', t, primaryColor, softColor)
+
+    const charts = grid.charts!
+    expect(charts.labels).toEqual(grid.timeCols.map(c => c.label))
+    expect(charts.legend.map(l => l.name)).toEqual(['Station 1', 'Station 2'])
+    expect(charts.metrics.map(m => m.key)).toEqual(['temp', 'pressure', 'wind'])
+
+    const temp = charts.metrics.find(m => m.key === 'temp')!
+    expect(temp.series[0].points).toEqual([20, 22])
+    // Station 2 has no 11:00 observation → null gap; missing pressure → null.
+    expect(temp.series[1].points).toEqual([null, 25])
+    const pressure = charts.metrics.find(m => m.key === 'pressure')!
+    expect(pressure.series[1].points).toEqual([null, null])
+  })
+
+  it('returns null charts for the empty grid', () => {
+    const grid = buildObservationGrid([station()], [], CENTER.lat, CENTER.lon, 'en', t, primaryColor, softColor)
+    expect(grid.charts).toBeNull()
+  })
+
   it('renders a dash placeholder cell for a missing metric value', () => {
     const observations = [observation({ temperature: null })]
     const grid = buildObservationGrid([station()], observations, CENTER.lat, CENTER.lon, 'en', t, primaryColor, softColor)

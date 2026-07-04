@@ -77,6 +77,20 @@ export function waveFill(h: number): string {
   return 'oklch(0.45 0.16 270)'
 }
 
+// Categorical palette for per-station chart series (observation trends).
+// Distinct hues at similar mid lightness so no line reads as "highlighted".
+const STATION_SERIES_COLORS = [
+  'oklch(0.55 0.13 255)', // blue
+  'oklch(0.58 0.10 200)', // teal
+  'oklch(0.58 0.12 150)', // green
+  'oklch(0.62 0.12 80)', // amber
+  'oklch(0.55 0.14 30)', // red-ish
+]
+
+export function stationSeriesColor(i: number): string {
+  return STATION_SERIES_COLORS[i % STATION_SERIES_COLORS.length]
+}
+
 export function uvColor(uv: number): string {
   if (uv < 3) return 'oklch(0.62 0.13 150)'
   if (uv < 6) return 'oklch(0.78 0.14 90)'

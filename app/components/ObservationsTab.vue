@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const settings = useSettings()
 const dens = computed(() => densityStyles(settings.value.density))
+const { mobile } = useViewport()
 const observationsRoot = ref<HTMLElement | null>(null)
 const showLoading = computed(() => props.loading && props.observationGrid.stationCards.length === 0)
 
@@ -134,6 +135,37 @@ watch(
       </div>
     </div>
 
+    <div v-if="!showLoading && props.observationGrid.charts" style="margin-top:22px;">
+      <div style="font-size:13.5px; font-weight:600; color:var(--text-heading); margin-bottom:8px;">{{ props.t.obsTrends }}</div>
+      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin-bottom:10px;">
+        <span
+          v-for="item in props.observationGrid.charts.legend"
+          :key="item.name"
+          style="display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--text-muted);"
+        >
+          <span :style="{ width: '8px', height: '8px', borderRadius: '50%', background: item.color, flex: 'none' }"></span>{{ item.name }}
+        </span>
+      </div>
+      <ClientOnly>
+        <div class="trend-grid">
+          <LazyChartsTrendSmallMultiple
+            v-for="metric in props.observationGrid.charts.metrics"
+            :key="metric.key"
+            :title="metric.title"
+            :unit="metric.unit"
+            :labels="props.observationGrid.charts.labels"
+            :series="metric.series"
+            :mobile="mobile"
+          />
+        </div>
+        <template #fallback>
+          <div class="trend-grid">
+            <div v-for="i in 3" :key="i" style="height:187px; border:1px solid oklch(0.89 0.008 255); border-radius:7px; background:#fff;"></div>
+          </div>
+        </template>
+      </ClientOnly>
+    </div>
+
     <div style="font-size:11px; color:var(--text-subtle); margin-top:10px;">{{ props.t.obsNote }}</div>
   </div>
 </template>
@@ -158,6 +190,12 @@ watch(
 .observation-scroll th,
 .observation-scroll td {
   scroll-snap-align: start;
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
 }
 
 @media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {

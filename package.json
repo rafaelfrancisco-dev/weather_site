@@ -20,11 +20,13 @@
     "@vercel/analytics": "^2.1.0-canary",
     "@vercel/speed-insights": "^2.0.1-canary",
     "@vueuse/nuxt": "^14.3.0",
+    "chart.js": "^4.5.1",
     "ioredis": "^5.4.1",
     "mapbox-gl": "^3",
     "nuxt": "^4.4.8",
     "vite": "^7.3.5",
     "vue": "^3.5.35",
+    "vue-chartjs": "^5.3.3",
     "vue-router": "^5.1.0"
   },
   "allowScripts": {
