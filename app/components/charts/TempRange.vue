@@ -7,6 +7,7 @@ import {
   chartGridColor,
   chartTicks,
   tooltipOptions,
+  tooltipTitleCallback,
 } from '~/utils/chartTheme'
 
 const props = defineProps<{
@@ -71,6 +72,7 @@ const chartOptions = computed(() => ({
     tooltip: {
       ...tooltipOptions(),
       callbacks: {
+        title: tooltipTitleCallback(props.model.fullLabels),
         label: (item: { dataset: { label?: string }, parsed: { y: number | null } }) =>
           `${item.dataset.label}: ${item.parsed.y ?? '—'}°`,
       },

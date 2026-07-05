@@ -59,6 +59,15 @@ export function tooltipOptions() {
   }
 }
 
+// Category-axis tick labels are deliberately short (hour-only, time-only, or
+// split across lines) so they stay readable on the axis — but that means
+// Chart.js's default tooltip title (which just echoes the tick label back)
+// is ambiguous or repeats across days. Pass the full unambiguous label per
+// data point instead, indexed by dataIndex.
+export function tooltipTitleCallback(labels: string[]) {
+  return (items: { dataIndex: number }[]) => items[0] ? (labels[items[0].dataIndex] ?? '') : ''
+}
+
 // Vertical "now" marker — same color as the hourly grid's current-hour border.
 // No-op when options.plugins.nowLine.index is absent.
 export const nowLinePlugin: Plugin = {

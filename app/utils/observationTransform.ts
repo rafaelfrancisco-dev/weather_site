@@ -3,7 +3,7 @@ import type {
   JSStationObservation,
 } from '#shared/ipma-types'
 import { precipBg, precipColor, stationSeriesColor, tempBg, tempColor, windBg } from '~/utils/colors'
-import { hourLabel } from '~/utils/format'
+import { dateTimeLabel, hourLabel } from '~/utils/format'
 import type { Lang } from '~/utils/i18n'
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -77,6 +77,9 @@ export interface ObservationChartMetric {
 
 export interface ObservationCharts {
   labels: string[]
+  // Full "D Mon, HH:mm" strings for tooltip titles — labels above are
+  // hour-only and carry no date.
+  fullLabels: string[]
   legend: { name: string, color: string }[]
   metrics: ObservationChartMetric[]
 }
@@ -225,6 +228,7 @@ export function buildObservationGrid(
   ]
   const charts: ObservationCharts = {
     labels: timeKeys.map(observationTimeLabel),
+    fullLabels: timeKeys.map(tk => dateTimeLabel(new Date(tk), lang)),
     legend: selectedStations.map((s, i) => ({ name: s.name, color: stationSeriesColor(i) })),
     metrics: chartMetricDefs.map(metric => ({
       key: metric.key,

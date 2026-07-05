@@ -154,6 +154,7 @@ watch(
             :title="metric.title"
             :unit="metric.unit"
             :labels="props.observationGrid.charts.labels"
+            :full-labels="props.observationGrid.charts.fullLabels"
             :series="metric.series"
             :mobile="mobile"
           />

@@ -10,6 +10,7 @@ import {
   dayBoundsPlugin,
   nowLinePlugin,
   tooltipOptions,
+  tooltipTitleCallback,
 } from '~/utils/chartTheme'
 const props = defineProps<{
   model: MeteogramModel
@@ -94,8 +95,11 @@ const chartOptions = computed(() => ({
     tooltip: {
       ...tooltipOptions(),
       callbacks: {
-        label: (item: { dataset: { label?: string, yAxisID?: string }, parsed: { y: number | null } }) =>
-          `${item.dataset.label}: ${item.parsed.y ?? '—'}${item.dataset.yAxisID === 'yPrecip' ? '%' : '°'}`,
+        title: tooltipTitleCallback(props.model.fullLabels),
+        label: (item: { dataset: { label?: string, yAxisID?: string }, parsed: { y: number | null } }) => {
+          if (item.dataset.yAxisID === 'yPrecip') return `${item.dataset.label}: ${item.parsed.y ?? 0} %`
+          return `${item.dataset.label}: ${item.parsed.y ?? '—'}°`
+        },
       },
     },
     nowLine: { index: props.model.nowIndex },
