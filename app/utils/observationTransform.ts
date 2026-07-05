@@ -2,8 +2,8 @@ import type {
   JSStation,
   JSStationObservation,
 } from '#shared/ipma-types'
-import { precipBg, precipColor, tempBg, tempColor, windBg } from '~/utils/colors'
-import { hourLabel } from '~/utils/format'
+import { precipBg, precipColor, stationSeriesColor, tempBg, tempColor, windBg } from '~/utils/colors'
+import { dateTimeLabel, hourLabel } from '~/utils/format'
 import type { Lang } from '~/utils/i18n'
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -62,10 +62,33 @@ export interface ObservationStationCard {
   rows: { label: string, unit: string, cells: ObservationGridCell[] }[]
 }
 
+export interface ObservationChartSeries {
+  name: string
+  color: string
+  points: (number | null)[]
+}
+
+export interface ObservationChartMetric {
+  key: 'temp' | 'pressure' | 'wind'
+  title: string
+  unit: string
+  series: ObservationChartSeries[]
+}
+
+export interface ObservationCharts {
+  labels: string[]
+  // Full "D Mon, HH:mm" strings for tooltip titles — labels above are
+  // hour-only and carry no date.
+  fullLabels: string[]
+  legend: { name: string, color: string }[]
+  metrics: ObservationChartMetric[]
+}
+
 export interface ObservationGrid {
   rows: ObservationGridRow[]
   stationCards: ObservationStationCard[]
   timeCols: { label: string, bg: string, weight: number, color: string }[]
+  charts: ObservationCharts | null
   summary: string
   stationLabel: string
   paramLabel: string
@@ -77,6 +100,7 @@ function emptyObservationGrid(lang: Lang): ObservationGrid {
     rows: [],
     stationCards: [],
     timeCols: [],
+    charts: null,
     summary: lang === 'pt' ? 'Sem observações disponíveis' : 'No observations available',
     stationLabel: lang === 'pt' ? 'Estação' : 'Station',
     paramLabel: lang === 'pt' ? 'Parâmetro' : 'Parameter',
@@ -193,6 +217,34 @@ export function buildObservationGrid(
     observationsByStationTime.set(key, observation)
   }
 
+  // Chart series reuse the same nearest-station selection and time keys as the
+  // grid, so both views always describe the same observations. Three small
+  // multiples (temp / pressure / wind) with one line per station — the value
+  // here is cross-station comparison at a glance.
+  const chartMetricDefs: { key: 'temp' | 'pressure' | 'wind', title: string, unit: string, read: (o: JSStationObservation) => number | null }[] = [
+    { key: 'temp', title: t.temp, unit: '°C', read: o => o.temperature },
+    { key: 'pressure', title: t.pressure, unit: 'hPa', read: o => o.pressure },
+    { key: 'wind', title: t.wind, unit: 'km/h', read: o => o.windSpeedKMH },
+  ]
+  const charts: ObservationCharts = {
+    labels: timeKeys.map(observationTimeLabel),
+    fullLabels: timeKeys.map(tk => dateTimeLabel(new Date(tk), lang)),
+    legend: selectedStations.map((s, i) => ({ name: s.name, color: stationSeriesColor(i) })),
+    metrics: chartMetricDefs.map(metric => ({
+      key: metric.key,
+      title: metric.title,
+      unit: metric.unit,
+      series: selectedStations.map((station, si) => ({
+        name: station.name,
+        color: stationSeriesColor(si),
+        points: timeKeys.map((timeKey) => {
+          const observation = observationsByStationTime.get(`${station.id}:${timeKey}`)
+          return observation ? metric.read(observation) : null
+        }),
+      })),
+    })),
+  }
+
   const rows: ObservationGridRow[] = []
   const stationCards: ObservationStationCard[] = []
   const nMetrics = metricRowDefs.length
@@ -238,6 +290,7 @@ export function buildObservationGrid(
     rows,
     stationCards,
     timeCols,
+    charts,
     summary: lang === 'pt'
       ? `${selectedStations.length} estações · ${nMetrics} parâmetros · de hora a hora · ${timeCols[0].label}–${timeCols[lastIdx].label}`
       : `${selectedStations.length} stations · ${nMetrics} parameters · hourly · ${timeCols[0].label}–${timeCols[lastIdx].label}`,

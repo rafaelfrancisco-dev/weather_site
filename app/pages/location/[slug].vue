@@ -65,6 +65,8 @@ const {
   warningBanner,
   dailyRows,
   hourlyGrid,
+  meteogramModel,
+  dailyRangeModel,
   observationGrid
 } = useLocationForecast(id, lang, t)
 
@@ -100,7 +102,7 @@ useSeoMeta({
       >{{ tb.label }}</button>
     </div>
 
-    <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :t="t" />
+    <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :meteogram="meteogramModel" :daily-range="dailyRangeModel" :primary="c.primary" :t="t" />
     <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" :primary="c.primary" :soft="c.soft" :loading="observationsLoading" />
   </template>
 </template>

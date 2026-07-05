@@ -9,6 +9,7 @@ import {
   buildHourlyGrid,
   buildObservationGrid
 } from '~/utils/transform'
+import { buildDailyRangeModel, buildMeteogramModel } from '~/utils/charts'
 
 interface ForecastResult {
   dataUpdate: string
@@ -151,6 +152,18 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     : { dayHeaders: [], timeCols: [], hourRows: [], hourDays: [] }
   )
 
+  // Chart models depend on lang so labels rebuild on language change —
+  // vue-chartjs then updates the charts in place.
+  const meteogramModel = computed(() => forecast.value
+    ? buildMeteogramModel(forecast.value.periods, lang.value, wallClockMs(now.value, 'Europe/Lisbon'))
+    : null
+  )
+
+  const dailyRangeModel = computed(() => forecast.value
+    ? buildDailyRangeModel(forecast.value.daily, lang.value)
+    : null
+  )
+
   const observationGrid = computed(() => selectedLocation.value
     ? buildObservationGrid(stations.value, observations.value, selectedLocation.value.latitude, selectedLocation.value.longitude, lang.value, t.value, c.value.primary, c.value.soft)
     : buildObservationGrid([], [], 0, 0, lang.value, t.value, c.value.primary, c.value.soft)
@@ -165,6 +178,8 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     warningBanner,
     dailyRows,
     hourlyGrid,
+    meteogramModel,
+    dailyRangeModel,
     observationGrid,
     c
   }

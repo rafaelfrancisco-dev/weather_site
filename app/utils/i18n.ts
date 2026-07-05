@@ -48,6 +48,10 @@ export function strings(lang: Lang) {
     noActiveWarnings: 'No active warnings',
     mapTapHint: 'Tap a location for its full forecast',
     mapPrimaryHint: 'Tap a location for its full forecast',
+    tempRangeChart: '10-day temperature range',
+    obsTrends: 'Station trends',
+    maxLabel: 'Max',
+    minLabel: 'Min',
   }
   const pt = {
     subtitle: 'Serviço de Meteorologia e Clima',
@@ -96,6 +100,10 @@ export function strings(lang: Lang) {
     noActiveWarnings: 'Sem avisos ativos',
     mapTapHint: 'Toque num local para ver a previsão completa',
     mapPrimaryHint: 'Toque num local para ver a previsão completa',
+    tempRangeChart: 'Amplitude térmica a 10 dias',
+    obsTrends: 'Tendências das estações',
+    maxLabel: 'Máx',
+    minLabel: 'Mín',
   }
   return lang === 'pt' ? pt : en
 }

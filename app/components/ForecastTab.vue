@@ -1,16 +1,33 @@
 <script setup lang="ts">
 import type { HourlyGrid, DailyRow } from '~/utils/transform'
+import type { DailyRangeModel, MeteogramModel } from '~/utils/charts'
 import { densityStyles } from '~/composables/useSettings'
 
 const props = defineProps<{
   hourlyGrid: HourlyGrid
   dailyRows: DailyRow[]
+  meteogram: MeteogramModel | null
+  dailyRange: DailyRangeModel | null
+  primary: string
   t: Record<string, string>
 }>()
 
 const settings = useSettings()
 const dens = computed(() => densityStyles(settings.value.density))
+const { mobile } = useViewport()
 const forecastRoot = ref<HTMLElement | null>(null)
+
+// Skeleton heights mirror the chart cards (chart area + legend row + padding)
+// so the charts pop in without layout shift.
+const CHART_CARD_CHROME = 45 // legend row + card padding + border
+const meteogramSkeletonHeight = computed(() => {
+  const chart = mobile.value ? 180 : (settings.value.density === 'Compact' ? 190 : 220)
+  return `${chart + CHART_CARD_CHROME}px`
+})
+const tempRangeSkeletonHeight = computed(() => {
+  const chart = mobile.value || settings.value.density === 'Compact' ? 170 : 200
+  return `${chart + CHART_CARD_CHROME}px`
+})
 
 const SKELETON_DAILY_ROWS = 10
 const SKELETON_DAY_GROUPS = 3
@@ -50,6 +67,16 @@ onMounted(scrollCurrentHourIntoView)
 <template>
   <div ref="forecastRoot">
     <div style="font-size:13.5px; font-weight:600; color:var(--text-heading); margin-bottom:8px;">{{ props.t.hourly }}</div>
+
+    <div style="margin-bottom:14px;">
+      <ClientOnly>
+        <LazyChartsMeteogram v-if="props.meteogram" :model="props.meteogram" :mobile="mobile" :primary="props.primary" :t="props.t" />
+        <div v-else :style="{ height: meteogramSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+        <template #fallback>
+          <div :style="{ height: meteogramSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+        </template>
+      </ClientOnly>
+    </div>
 
     <!-- desktop hourly grid -->
     <div class="variant-desktop" style="border:1px solid oklch(0.89 0.008 255); border-radius:7px; overflow:hidden; background:#fff; margin-bottom:26px;">
@@ -261,6 +288,15 @@ onMounted(scrollCurrentHourIntoView)
         </div>
       </template>
     </div>
+
+    <div style="font-size:13.5px; font-weight:600; color:var(--text-heading); margin:26px 0 8px;">{{ props.t.tempRangeChart }}</div>
+    <ClientOnly>
+      <LazyChartsTempRange v-if="props.dailyRange" :model="props.dailyRange" :mobile="mobile" :t="props.t" />
+      <div v-else :style="{ height: tempRangeSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+      <template #fallback>
+        <div :style="{ height: tempRangeSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+      </template>
+    </ClientOnly>
   </div>
 </template>
 
