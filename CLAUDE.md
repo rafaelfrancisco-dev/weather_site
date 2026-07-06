@@ -45,7 +45,7 @@ There are two independent caching mechanisms that are intentionally tuned togeth
 
 - `useLocationsData()` (`app/composables/useLocationsData.ts`) bootstraps "global" data in two separate `useAsyncData` calls sharing the same composable, deduped across components via their keys: `ipma-bootstrap` (locations, districts, warnings, weather-type descriptions, fanned out via `Promise.all` over the `/api/*` endpoints) and `ipma-observations` (stations+observations, `server: false, lazy: true` so it never blocks SSR or ships in the initial payload/hydration data — it's client-fetch-only, unlike the rest of the bootstrap). Observations were split out because they dominated the old combined payload (~87% of it) despite never being SSR-rendered; consumers read `observationsLoading` to show a loading state while the client-only fetch is in flight (e.g. `ObservationsTab.vue`).
 - `useLocationForecast(id, lang, t)` (`app/composables/useLocationForecast.ts`) fetches the per-location forecast **client-side only** (inside `if (import.meta.client)`), deliberately not blocking on `await` so Suspense resolves immediately on navigation. It keeps a `useState`-backed in-memory cache (`ipma-forecast-client-cache`) keyed by location id, cancels in-flight requests via `AbortController` when the selected location changes, and guards against race conditions with a `requestId` counter.
-- `usePrefetchForecast()` (same file) lets the sidebar (`RegionTree.vue`, via `@mouseenter`) start fetching a location's forecast ahead of desktop clicks, sharing the same cache/inflight `useState`. Touch navigation relies on the real navigation fetch to avoid scroll-triggered requests. Best-effort: errors are swallowed since the real navigation fetch will retry and surface them.
+- `usePrefetchForecast()` (same file) lets the sidebar (`RegionTree.vue`, via `@mouseenter`) start fetching a location's forecast ahead of desktop clicks, sharing the same cache/inflight `useState`. Touch navigation relies on the real navigation fetch to avoid scroll-triggered requests. Best-effort: errors are reported to Sentry but otherwise swallowed in the UI, since the real navigation fetch will retry and surface them.
 - All derived/presentational data (the location tree, daily rows, hourly grid, observation grid, warning banners) is computed by pure functions in `app/utils/transform.ts` from the raw IPMA types — components themselves stay thin.
 
 ### Styling
@@ -55,3 +55,19 @@ There is no CSS framework; inline `:style`/`style` bindings remain the default f
 ### i18n
 
 There is no i18n module — `app/utils/i18n.ts` exports a `strings(lang)` lookup and date-formatting helpers (`weekday`, `monthShort`, etc.) for the two supported languages (`en`, `pt`), driven by `useSettings().lang`.
+
+### SEO indexability requires `NUXT_SITE_URL`
+
+`site.indexable` (`nuxt.config.ts`) is only `true` when `VERCEL_ENV === 'production'` **and** `NUXT_SITE_URL` is set — without `NUXT_SITE_URL` in the production Vercel env, the site ships `noindex` and broken canonical/sitemap URLs even in production. Set it to the real production URL (e.g. `https://weather-site.vercel.app`) via `vercel env add NUXT_SITE_URL production`.
+
+### Error reporting: Sentry (`@sentry/nuxt`)
+
+- Configured via `nuxt.config.ts` (`sentry: { ... }`, plus root-level `sourcemap: { client: 'hidden' }` for readable-but-unlisted client stack traces) and two root-level config files, `sentry.client.config.ts` / `sentry.server.config.ts`, each calling `Sentry.init()` directly (the DSN is a public value, hardcoded). Both are errors-only (`tracesSampleRate: 0`, no Replay/Feedback) and disabled outside production/preview.
+- `sentry.client.config.ts` reads `useRuntimeConfig().public.vercelEnv` rather than `process.env.VERCEL_ENV` directly — Vite doesn't expose arbitrary `process.env` vars to the client bundle, but this file runs inside a Nuxt plugin context (per the SDK), so `useRuntimeConfig()`/other Nuxt auto-imports work despite living at the repo root.
+- **Server-side Sentry does not run under `nuxt dev`** — this is a documented SDK limitation (no `--import` hook in dev), not a bug. `autoInjectServerSentry: 'top-level-import'` is used instead, since Vercel's serverless runtime doesn't support the `node --import` flag; it gives basic http-level tracing only, which is fine since tracing is disabled anyway.
+- Source-map upload needs `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` in the Vercel env; without them the build just skips uploading (module warns, doesn't fail).
+- Convention: catch sites that deliberately swallow errors (background revalidation, best-effort prefetch, per-location map-forecast failures) call `Sentry.captureException(error)` before falling back, so silent failures are still visible somewhere. Follow this pattern for any new best-effort catch block — don't add a truly silent `catch {}`/`.catch(() => {})`.
+
+### Health endpoint
+
+`server/api/health.get.ts` returns `{ ok, wasm, cache }` — `wasm` checks the IPMA wasm client can load (`isIpmaClientReady()` in `server/utils/ipma.ts`), `cache` round-trips a ping key on `useStorage('cache')`. Deliberately never calls the real IPMA upstream API, so an uptime monitor probing it doesn't consume IPMA's rate limits or reflect IPMA's own downtime as this app's downtime. `Cache-Control: no-store`. No external monitor is wired up to it yet.

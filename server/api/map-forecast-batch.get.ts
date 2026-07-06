@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/nuxt'
+
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const idsParam = typeof query.ids === 'string' ? query.ids : ''
@@ -14,7 +16,8 @@ export default defineEventHandler(async (event) => {
         const fc = await cachedForecast(event, id)
         const today = (fc as unknown as { daily: { tMax: number; weatherTypeID: number; forecastDate: string }[] }).daily?.[0]
         return { id: String(id), tmax: today?.tMax ?? null, wt: today?.weatherTypeID ?? null }
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         return { id: String(id), tmax: null, wt: null }
       }
     })

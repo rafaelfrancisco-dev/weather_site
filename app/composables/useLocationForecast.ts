@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nuxt'
 import type { Lang } from '~/utils/i18n'
 import { wallClockMs, weatherIconUrl } from '~/utils/format'
 import { accentColors } from '~/utils/colors'
@@ -201,7 +202,7 @@ export function usePrefetchForecast() {
     inflight.value[key] = true
     requestFetch<ForecastResult>(`/api/forecast/${locationId}`)
       .then((forecast) => { forecastCache.value[key] = forecast })
-      .catch(() => {})
+      .catch((error) => { Sentry.captureException(error) })
       .finally(() => { delete inflight.value[key] })
   }
 

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nuxt'
 import type {
   JSLocation,
   JSDistrict,
@@ -65,11 +66,11 @@ export function useLocationsData() {
       const now = Date.now()
       if (now - lastBootstrapFetchedAt >= REVALIDATE_BOOTSTRAP_AFTER_MS) {
         lastBootstrapFetchedAt = now
-        refresh().catch(() => {})
+        refresh().catch((error) => { Sentry.captureException(error) })
       }
       if (now - lastObservationsFetchedAt >= REVALIDATE_OBSERVATIONS_AFTER_MS) {
         lastObservationsFetchedAt = now
-        refreshObservations().catch(() => {})
+        refreshObservations().catch((error) => { Sentry.captureException(error) })
       }
     })
   }
@@ -106,6 +107,7 @@ export function useLocationsData() {
     observationsLoading,
     bootstrapped,
     bootstrapError,
+    refreshBootstrap: refresh,
     districtMap,
     warningsByArea,
     labelFor

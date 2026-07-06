@@ -15,8 +15,26 @@ const {
   districtMap,
   warningsByArea,
   bootstrapped,
-  bootstrapError
+  bootstrapError,
+  refreshBootstrap
 } = useLocationsData()
+
+// The raw fetch error isn't user-facing (it may leak upstream/internal
+// details); log it for diagnostics and show a friendly localized message +
+// retry button instead.
+watch(bootstrapError, (err) => {
+  if (err) console.error('[bootstrap]', err)
+})
+
+const retrying = ref(false)
+async function retryBootstrap() {
+  retrying.value = true
+  try {
+    await refreshBootstrap()
+  } finally {
+    retrying.value = false
+  }
+}
 
 const t = computed(() => strings(settings.value.lang))
 const c = computed(() => accentColors(settings.value.accent))
@@ -49,8 +67,14 @@ useHead({
 </script>
 
 <template>
-  <div v-if="bootstrapError && !bootstrapped" class="app-shell app-shell--center" style="color:oklch(0.55 0.21 27); font-size:14px;">
-    {{ bootstrapError }}
+  <div v-if="bootstrapError && !bootstrapped" class="app-shell app-shell--center" style="flex-direction:column; gap:12px; color:oklch(0.55 0.21 27); font-size:14px;">
+    <div>{{ t.bootstrapError }}</div>
+    <button
+      type="button"
+      :disabled="retrying"
+      style="font-family:inherit; font-size:13px; font-weight:500; color:oklch(0.55 0.21 27); background:none; border:1px solid oklch(0.55 0.21 27); border-radius:6px; padding:7px 14px; cursor:pointer;"
+      @click="retryBootstrap"
+    >{{ t.retry }}</button>
   </div>
   <div v-else-if="!bootstrapped" class="app-shell app-shell--center" style="color:oklch(0.4 0.012 255); font-size:14px;">
     Loading forecast data…

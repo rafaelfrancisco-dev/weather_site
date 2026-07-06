@@ -19,7 +19,12 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   runtimeConfig: {
     public: {
-      mapboxToken: ''  // set via NUXT_PUBLIC_MAPBOX_TOKEN env var
+      mapboxToken: '',  // set via NUXT_PUBLIC_MAPBOX_TOKEN env var
+      // Baked in at build time so sentry.client.config.ts can tag events with
+      // it — Vite doesn't expose arbitrary process.env vars to the client
+      // bundle, but sentry.client.config.ts runs inside a Nuxt plugin context
+      // (per @sentry/nuxt), so useRuntimeConfig() works there.
+      vercelEnv: process.env.VERCEL_ENV ?? 'development'
     }
   },
   devtools: { enabled: true },
@@ -120,7 +125,11 @@ export default defineNuxtConfig({
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-        'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://www.ipma.pt https://api.mapbox.com; worker-src 'self' blob:; child-src blob:; connect-src 'self' https://api.mapbox.com https://events.mapbox.com; base-uri 'self'; form-action 'self'"
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+        // connect-src includes the Sentry envelope endpoint (error reporting);
+        // report-uri sends CSP violations there too, alongside JS errors, so
+        // both land in the same dashboard. Still Report-Only — see comment above.
+        'Content-Security-Policy-Report-Only': "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://www.ipma.pt https://api.mapbox.com; worker-src 'self' blob:; child-src blob:; connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://o270518.ingest.us.sentry.io; base-uri 'self'; form-action 'self'; report-uri https://o270518.ingest.us.sentry.io/api/4511688352399360/security/?sentry_key=d7c8711fa1f0811e151a19ef9ebbb28f"
       }
     },
     '/fonts/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
@@ -135,5 +144,18 @@ export default defineNuxtConfig({
     '/maps': { isr: 3600 },
     '/maps/**': { isr: 3600 }
   },
-  modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vercel/analytics', '@vercel/speed-insights']
+  modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vercel/analytics', '@vercel/speed-insights', '@sentry/nuxt/module'],
+  // Hidden client source maps so stack traces resolve in Sentry without
+  // shipping readable source to the browser.
+  sourcemap: { client: 'hidden' },
+  sentry: {
+    // 'top-level-import' is the documented mode for serverless/Vercel, where
+    // the `node --import` flag isn't available; it only supports basic
+    // (http-level) tracing, which is fine since tracesSampleRate is 0 anyway
+    // (see sentry.server.config.ts) — we want error capture, not APM.
+    autoInjectServerSentry: 'top-level-import',
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN
+  }
 })

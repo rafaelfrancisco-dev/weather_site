@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nuxt'
 import { CAPITALS } from '~/utils/maps'
 import type { FcPoint } from '#shared/map-types'
 
@@ -36,7 +37,8 @@ export default defineCachedEventHandler(
             wt: today?.weatherTypeID ?? null,
             uv: today?.uvIndex ?? null,
           }
-        } catch {
+        } catch (error) {
+          Sentry.captureException(error)
           return { id: cap.id, name: cap.name, district: cap.district, group: cap.group, lat: cap.lat, lon: cap.lon, tmax: null, tmin: null, wt: null, uv: null }
         }
       })

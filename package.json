@@ -17,6 +17,7 @@
     "@nuxtjs/google-fonts": "^3.2.0",
     "@nuxtjs/seo": "^5.3.0",
     "@rafaelfrancisco-dev/ipma-weather-js": "^0.1.1",
+    "@sentry/nuxt": "^10.63.0",
     "@vercel/analytics": "^2.1.0-canary",
     "@vercel/speed-insights": "^2.0.1-canary",
     "@vueuse/nuxt": "^14.3.0",
@@ -33,7 +34,8 @@
     "esbuild@0.28.1": true,
     "@parcel/watcher@2.5.6": true,
     "fsevents@2.3.3": true,
-    "vue-demi@0.14.10": true
+    "vue-demi@0.14.10": true,
+    "@sentry/cli@2.58.6": true
   },
   "overrides": {
     "@vercel/speed-insights": {

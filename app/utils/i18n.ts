@@ -52,6 +52,8 @@ export function strings(lang: Lang) {
     obsTrends: 'Station trends',
     maxLabel: 'Max',
     minLabel: 'Min',
+    bootstrapError: "Couldn't load forecast data. Please try again in a moment.",
+    retry: 'Retry',
   }
   const pt = {
     subtitle: 'Serviço de Meteorologia e Clima',
@@ -104,6 +106,8 @@ export function strings(lang: Lang) {
     obsTrends: 'Tendências das estações',
     maxLabel: 'Máx',
     minLabel: 'Mín',
+    bootstrapError: 'Não foi possível carregar os dados. Tente novamente dentro de momentos.',
+    retry: 'Tentar novamente',
   }
   return lang === 'pt' ? pt : en
 }

@@ -43,17 +43,17 @@ useHead({
   })
 })
 
-watchEffect(() => {
-  if (found.value && id.value != null) {
-    settings.value.lastLocationId = id.value
-  }
-})
-
-// Client-only: a server-side write here would add `Set-Cookie` to
+// Client-only: settings.value is a module-level useLocalStorage singleton
+// (useSettings.ts), shared across requests on a warm serverless instance —
+// writing it during SSR would leak one request's location into another's
+// render. A server-side cookie write here would also add `Set-Cookie` to
 // ISR-cached /location/** responses and break edge caching for everyone.
 if (import.meta.client) {
   const lastLocationCookie = useCookie(LAST_LOCATION_COOKIE, { maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', path: '/' })
   watchEffect(() => {
+    if (found.value && id.value != null) {
+      settings.value.lastLocationId = id.value
+    }
     if (location.value) {
       lastLocationCookie.value = `${location.value.id}-${slugify(location.value.name)}`
     }

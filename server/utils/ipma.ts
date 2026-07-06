@@ -19,6 +19,15 @@ function getIpmaClient(): Promise<IPMAWeatherClient> {
   return clientPromise
 }
 
+// Resolves the wasm client without calling any IPMA upstream API — compiling
+// the wasm module and instantiating the client class is a purely local
+// operation. Used by /api/health so the health check never depends on IPMA's
+// own uptime.
+export async function isIpmaClientReady(): Promise<boolean> {
+  await getIpmaClient()
+  return true
+}
+
 export const cachedLocations = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).forecastLocations(),
   { name: 'ipma', getKey: () => 'locations', maxAge: 86400 }
