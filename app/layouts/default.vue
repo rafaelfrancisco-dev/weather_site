@@ -61,9 +61,16 @@ function toggleRegion(id: string) {
   open.value = { ...open.value, [id]: !currentlyOpen }
 }
 
-useHead({
-  htmlAttrs: { lang: computed(() => settings.value.lang) }
-})
+// nuxt-seo-utils also renders <html lang> (from site.defaultLocale) with
+// tagPriority 'low'. In unhead's htmlAttrs merge, entries are processed in
+// ascending weight order and the LAST processed wins each attribute —
+// 'low' is weight 102 vs the default 100, so a default-priority entry here
+// silently loses to the module's static 'en'. tagPriority 110 sorts this
+// entry after it, and the function-form input keeps it reactive to the
+// language toggle. SSR output is unchanged ('en' defaults either way).
+useHead(() => ({
+  htmlAttrs: { lang: settings.value.lang }
+}), { tagPriority: 110 })
 </script>
 
 <template>

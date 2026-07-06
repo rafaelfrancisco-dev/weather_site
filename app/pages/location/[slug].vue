@@ -43,11 +43,11 @@ useHead({
   })
 })
 
-// Client-only: settings.value is a module-level useLocalStorage singleton
-// (useSettings.ts), shared across requests on a warm serverless instance —
-// writing it during SSR would leak one request's location into another's
-// render. A server-side cookie write here would also add `Set-Cookie` to
-// ISR-cached /location/** responses and break edge caching for everyone.
+// Client-only: settings is a module-level singleton (useSettings.ts) shared
+// across requests on a warm serverless instance — writing it during SSR
+// would leak one request's location into another's render. A server-side
+// cookie write here would also add `Set-Cookie` to ISR-cached /location/**
+// responses and break edge caching for everyone.
 if (import.meta.client) {
   const lastLocationCookie = useCookie(LAST_LOCATION_COOKIE, { maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', path: '/' })
   watchEffect(() => {
