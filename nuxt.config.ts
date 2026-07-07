@@ -66,13 +66,15 @@ export default defineNuxtConfig({
   nitro: {
     serverAssets: [{ baseName: 'ipma', dir: ipmaWasmDir }],
     storage: {
-      // Nitro only forwards a per-entry TTL to the storage driver when a
-      // cached function sets `swr: false` (see nitropack's cache.mjs) — all
-      // of the defineCachedFunction calls in server/utils/ipma.ts use the
-      // default swr: true, so without a driver-level ttl here, entries never
-      // get a Redis EX and live forever, filling a capacity-limited Redis.
-      // 90000s (25h) comfortably outlives the longest maxAge in use (86400s)
-      // so Redis never evicts an entry before the app would've refreshed it.
+      // All defineCachedFunction calls in server/utils/ipma.ts (and
+      // map-forecast.get.ts) set `swr: false`, so Nitro forwards a per-entry
+      // TTL (`ttl: maxAge`) to the storage driver on every write (see
+      // nitropack's cache.mjs) — that's what actually expires each key on
+      // schedule. This driver-level ttl is just a backstop for keys written
+      // without one (the health-check ping key, or any future cached
+      // function that forgets swr: false) so they can't live in Redis
+      // forever; 90000s (25h) comfortably outlives the longest maxAge in use
+      // (86400s).
       cache: { driver: 'redis', url: process.env.REDIS_URL, ttl: 90000 }
     },
     devStorage: {

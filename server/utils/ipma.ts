@@ -28,19 +28,31 @@ export async function isIpmaClientReady(): Promise<boolean> {
   return true
 }
 
+// All cached functions below set `swr: false`. Nitro's vercel preset never
+// wires `event.context.waitUntil` to the platform (only cloudflare/service-
+// worker/winterjs presets do), so with the default `swr: true`, an expired
+// entry's background refresh is handed to `event.waitUntil` and dies when the
+// serverless function freezes after responding — the entry then serves stale
+// until the driver-level backstop ttl (nuxt.config.ts) evicts it, up to 25h.
+// `swr: false` blocks on refresh instead and forwards `ttl: maxAge` per-entry
+// to Redis, so entries expire on schedule. Trade-off: after expiry, an IPMA
+// upstream failure now throws (500) instead of serving eternal-stale — every
+// affected route sits behind an `isr` route rule, so Vercel's ISR layer
+// serves the last good response on a background-revalidation error, and
+// map-forecast-batch.get.ts already degrades gracefully per-location.
 export const cachedLocations = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).forecastLocations(),
-  { name: 'ipma', getKey: () => 'locations', maxAge: 86400 }
+  { name: 'ipma', getKey: () => 'locations', maxAge: 86400, swr: false }
 )
 
 export const cachedDistricts = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).districts(),
-  { name: 'ipma', getKey: () => 'districts', maxAge: 86400 }
+  { name: 'ipma', getKey: () => 'districts', maxAge: 86400, swr: false }
 )
 
 export const cachedWeatherTypes = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).weatherTypeDescriptions(),
-  { name: 'ipma', getKey: () => 'weather-types', maxAge: 86400 }
+  { name: 'ipma', getKey: () => 'weather-types', maxAge: 86400, swr: false }
 )
 
 // maxAge matches cachedForecast/cachedObservations (3600) rather than a
@@ -51,12 +63,12 @@ export const cachedWeatherTypes = defineCachedFunction(
 // shorten this without also reconsidering those isr windows.
 export const cachedWarnings = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).weatherWarnings(),
-  { name: 'ipma', getKey: () => 'warnings', maxAge: 3600 }
+  { name: 'ipma', getKey: () => 'warnings', maxAge: 3600, swr: false }
 )
 
 export const cachedStations = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).stations(),
-  { name: 'ipma', getKey: () => 'stations', maxAge: 86400 }
+  { name: 'ipma', getKey: () => 'stations', maxAge: 86400, swr: false }
 )
 
 // maxAge is tighter than the other cached functions (600 vs 3600): station
@@ -66,10 +78,10 @@ export const cachedStations = defineCachedFunction(
 // `/api/observations` isr window in nuxt.config.ts — keep both in sync.
 export const cachedObservations = defineCachedFunction(
   async (_event: H3Event) => (await getIpmaClient()).stationObservations(),
-  { name: 'ipma', getKey: () => 'observations', maxAge: 600 }
+  { name: 'ipma', getKey: () => 'observations', maxAge: 600, swr: false }
 )
 
 export const cachedForecast = defineCachedFunction(
   async (_event: H3Event, locationId: number) => (await getIpmaClient()).aggregateForecast(locationId),
-  { name: 'ipma', getKey: (_event: H3Event, locationId: number) => `forecast:${locationId}`, maxAge: 3600 }
+  { name: 'ipma', getKey: (_event: H3Event, locationId: number) => `forecast:${locationId}`, maxAge: 3600, swr: false }
 )

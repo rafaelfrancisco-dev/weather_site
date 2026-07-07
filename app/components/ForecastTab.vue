@@ -16,18 +16,28 @@ const settings = useSettings()
 const dens = computed(() => densityStyles(settings.value.density))
 const { mobile } = useViewport()
 const forecastRoot = ref<HTMLElement | null>(null)
+const desktopHourlyScroller = ref<HTMLElement | null>(null)
 
 // Skeleton heights mirror the chart cards (chart area + legend row + padding)
-// so the charts pop in without layout shift.
+// so the charts pop in without layout shift. Rendered as a `.variant-desktop`
+// / `.variant-mobile` pair (CSS-toggled, like the rest of this file) rather
+// than branching on `mobile.value`: useViewport()'s `mobile` ref updates
+// synchronously on the client before hydration completes, so gating this
+// SSR-visible skeleton markup on it caused a real hydration style mismatch
+// (server always sees the desktop default; a mobile-viewport client would
+// already see `mobile.value = true` by the time this component's own render
+// runs) — see CLAUDE.md: useViewport() must not gate SSR-visible layout.
 const CHART_CARD_CHROME = 45 // legend row + card padding + border
-const meteogramSkeletonHeight = computed(() => {
-  const chart = mobile.value ? 180 : (settings.value.density === 'Compact' ? 190 : 220)
+const meteogramSkeletonHeightDesktop = computed(() => {
+  const chart = settings.value.density === 'Compact' ? 190 : 220
   return `${chart + CHART_CARD_CHROME}px`
 })
-const tempRangeSkeletonHeight = computed(() => {
-  const chart = mobile.value || settings.value.density === 'Compact' ? 170 : 200
+const meteogramSkeletonHeightMobile = computed(() => `${180 + CHART_CARD_CHROME}px`)
+const tempRangeSkeletonHeightDesktop = computed(() => {
+  const chart = settings.value.density === 'Compact' ? 170 : 200
   return `${chart + CHART_CARD_CHROME}px`
 })
+const tempRangeSkeletonHeightMobile = computed(() => `${170 + CHART_CARD_CHROME}px`)
 
 const SKELETON_DAILY_ROWS = 10
 const SKELETON_DAY_GROUPS = 3
@@ -49,8 +59,16 @@ function scrollCurrentHourIntoView() {
   nextTick(() => {
     const current = forecastRoot.value?.querySelector<HTMLElement>('.hourly-card--current')
     const strip = current?.parentElement
-    if (!current || !strip) return
-    strip.scrollLeft = current.offsetLeft - ((strip.clientWidth - current.offsetWidth) / 2)
+    if (current && strip) {
+      strip.scrollLeft = current.offsetLeft - ((strip.clientWidth - current.offsetWidth) / 2)
+    }
+
+    // Hidden on desktop's mobile breakpoint (display:none) → harmless no-op.
+    const scroller = desktopHourlyScroller.value
+    const col = scroller?.querySelector<HTMLElement>('.hourly-col--current')
+    if (scroller && col) {
+      scroller.scrollLeft = col.offsetLeft - ((scroller.clientWidth - col.offsetWidth) / 2)
+    }
   })
 }
 
@@ -71,16 +89,20 @@ onMounted(scrollCurrentHourIntoView)
     <div style="margin-bottom:14px;">
       <ClientOnly>
         <LazyChartsMeteogram v-if="props.meteogram" :model="props.meteogram" :mobile="mobile" :primary="props.primary" :t="props.t" />
-        <div v-else :style="{ height: meteogramSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+        <template v-else>
+          <div class="variant-desktop" :style="{ height: meteogramSkeletonHeightDesktop, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+          <div class="variant-mobile" :style="{ height: meteogramSkeletonHeightMobile, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+        </template>
         <template #fallback>
-          <div :style="{ height: meteogramSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+          <div class="variant-desktop" :style="{ height: meteogramSkeletonHeightDesktop, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+          <div class="variant-mobile" :style="{ height: meteogramSkeletonHeightMobile, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
         </template>
       </ClientOnly>
     </div>
 
     <!-- desktop hourly grid -->
     <div class="variant-desktop" style="border:1px solid oklch(0.89 0.008 255); border-radius:7px; overflow:hidden; background:#fff; margin-bottom:26px;">
-      <div style="overflow-x:auto;">
+      <div ref="desktopHourlyScroller" style="overflow-x:auto;">
         <table style="border-collapse:collapse; width:100%; min-width:760px;">
           <thead>
             <tr>
@@ -97,6 +119,7 @@ onMounted(scrollCurrentHourIntoView)
               <th
                 v-for="(col, i) in props.hourlyGrid.timeCols"
                 :key="i"
+                :class="{ 'hourly-col--current': col.isCurrent }"
                 :style="{ background: col.isCurrent ? 'oklch(0.88 0.012 255)' : 'oklch(0.985 0.004 255)', borderBottom: col.isCurrent ? '2px solid oklch(0.65 0.02 255)' : '1px solid oklch(0.86 0.008 255)', borderLeft: col.sep, padding: '4px 0', fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', fontWeight: col.isCurrent ? 700 : 500, color: col.isCurrent ? 'oklch(0.28 0.02 255)' : 'var(--text-muted)', width: '42px', textAlign: 'center' }"
               >{{ col.label }}</th>
             </tr>
@@ -292,9 +315,13 @@ onMounted(scrollCurrentHourIntoView)
     <div style="font-size:13.5px; font-weight:600; color:var(--text-heading); margin:26px 0 8px;">{{ props.t.tempRangeChart }}</div>
     <ClientOnly>
       <LazyChartsTempRange v-if="props.dailyRange" :model="props.dailyRange" :mobile="mobile" :t="props.t" />
-      <div v-else :style="{ height: tempRangeSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+      <template v-else>
+        <div class="variant-desktop" :style="{ height: tempRangeSkeletonHeightDesktop, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+        <div class="variant-mobile" :style="{ height: tempRangeSkeletonHeightMobile, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+      </template>
       <template #fallback>
-        <div :style="{ height: tempRangeSkeletonHeight, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+        <div class="variant-desktop" :style="{ height: tempRangeSkeletonHeightDesktop, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
+        <div class="variant-mobile" :style="{ height: tempRangeSkeletonHeightMobile, border: '1px solid oklch(0.89 0.008 255)', borderRadius: '7px', background: '#fff' }"></div>
       </template>
     </ClientOnly>
   </div>

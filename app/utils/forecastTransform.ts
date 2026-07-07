@@ -64,6 +64,17 @@ export function groupPeriodsByDay(periods: JSHourlyForecastPeriod[], maxDays: nu
   return [...map.values()].slice(0, maxDays)
 }
 
+export const MAX_PAST_HOURLY_MS = 12 * 60 * 60 * 1000
+
+// Falls back to the untrimmed list if everything is past, so a fully-stale
+// payload still renders instead of an indefinite skeleton (ForecastTab shows
+// the skeleton whenever hourRows is empty).
+export function trimPastPeriods(periods: JSHourlyForecastPeriod[], nowWallMs: number): JSHourlyForecastPeriod[] {
+  const cutoff = nowWallMs - MAX_PAST_HOURLY_MS
+  const trimmed = periods.filter(p => wallParseMs(p.forecastDate) >= cutoff)
+  return trimmed.length > 0 ? trimmed : periods
+}
+
 export interface HourCell {
   sep: string
   isIcon: boolean
@@ -99,7 +110,7 @@ export function buildHourlyGrid(
   showBars: boolean,
   nowWallMs: number,
 ): HourlyGrid {
-  const days = groupPeriodsByDay(periods, 3)
+  const days = groupPeriodsByDay(trimPastPeriods(periods, nowWallMs), 3)
   const flat = days.flat()
 
   const dayBoundaries = new Set<number>()

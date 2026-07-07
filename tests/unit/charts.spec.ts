@@ -94,6 +94,17 @@ describe('buildMeteogramModel', () => {
     expect(model.tempSuggestedMin).toBe(15)
     expect(model.tempSuggestedMax).toBe(33)
   })
+
+  it('labels start at the first kept hour, matching the hourly grid trim window', () => {
+    const nowWallMs = wallParseMs('2026-07-02T20:00:00')
+    const periods = [
+      period({ forecastDate: '2026-07-02T07:59:00' }), // >12h before, dropped
+      period({ forecastDate: '2026-07-02T08:00:00' }), // exactly -12h, kept
+      period({ forecastDate: '2026-07-02T20:00:00' }),
+    ]
+    const model = buildMeteogramModel(periods, 'en', nowWallMs)!
+    expect(model.labels).toEqual(['08', '20'])
+  })
 })
 
 describe('buildDailyRangeModel', () => {

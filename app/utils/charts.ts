@@ -6,7 +6,7 @@ import type {
   JSAggregateForecastDay,
   JSHourlyForecastPeriod,
 } from '#shared/ipma-types'
-import { groupPeriodsByDay } from '~/utils/forecastTransform'
+import { groupPeriodsByDay, trimPastPeriods } from '~/utils/forecastTransform'
 import { dateTimeLabel, hourLabel, wallParseMs } from '~/utils/format'
 import type { Lang } from '~/utils/i18n'
 import { monthShort, weekday } from '~/utils/i18n'
@@ -32,8 +32,9 @@ export function buildMeteogramModel(
   nowWallMs: number,
 ): MeteogramModel | null {
   // Same 3-day window as the hourly grid, so the chart and the table below it
-  // always describe the same periods.
-  const days = groupPeriodsByDay(periods, 3)
+  // always describe the same periods — trim past periods the same way
+  // buildHourlyGrid does, or the chart's window would desync from the table.
+  const days = groupPeriodsByDay(trimPastPeriods(periods, nowWallMs), 3)
   const flat = days.flat()
   if (flat.length === 0) return null
 

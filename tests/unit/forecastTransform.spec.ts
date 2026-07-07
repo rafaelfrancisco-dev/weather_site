@@ -121,4 +121,43 @@ describe('buildHourlyGrid', () => {
     expect(precipRowWith.cells[0].showBar).toBe(true)
     expect(precipRowWithout.cells[0].showBar).toBe(false)
   })
+
+  it('drops periods more than 12h before now, inclusive at exactly -12h', () => {
+    const nowWallMs = wallParseMs('2026-07-02T20:00:00')
+    const periods = [
+      period({ forecastDate: '2026-07-02T07:59:00' }), // >12h before, dropped
+      period({ forecastDate: '2026-07-02T08:00:00' }), // exactly -12h, kept
+      period({ forecastDate: '2026-07-02T20:00:00' }),
+    ]
+    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false, nowWallMs)
+    expect(grid.timeCols.map(c => c.label)).toEqual(['08', '20'])
+  })
+
+  it('starts the 3-day window from the first day with kept periods', () => {
+    const nowWallMs = wallParseMs('2026-07-04T08:00:00')
+    const periods = [
+      period({ forecastDate: '2026-07-01T10:00:00' }),
+      period({ forecastDate: '2026-07-02T10:00:00' }),
+      period({ forecastDate: '2026-07-03T10:00:00' }), // >12h before, dropped
+      period({ forecastDate: '2026-07-03T22:00:00' }), // within 12h, kept
+      period({ forecastDate: '2026-07-04T10:00:00' }),
+      period({ forecastDate: '2026-07-05T10:00:00' }),
+    ]
+    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false, nowWallMs)
+    // 07-01/07-02 and the 07-03T10:00 period are trimmed; the 3-day slice
+    // then counts from 07-03 (its surviving 22:00 period) rather than
+    // burning budget on the dropped days.
+    expect(grid.dayHeaders).toHaveLength(3)
+    expect(grid.dayHeaders.map(h => h.label)).toEqual(['Fri 3 Jul', 'Sat 4 Jul', 'Sun 5 Jul'])
+  })
+
+  it('falls back to the untrimmed list when every period is more than 12h old', () => {
+    const nowWallMs = wallParseMs('2026-07-05T12:00:00')
+    const periods = [
+      period({ forecastDate: '2026-07-02T10:00:00' }),
+      period({ forecastDate: '2026-07-02T13:00:00' }),
+    ]
+    const grid = buildHourlyGrid(periods, 'en', t, labelFor, iconUrl, 'oklch(0.5 0.1 255)', false, nowWallMs)
+    expect(grid.timeCols.map(c => c.label)).toEqual(['10', '13'])
+  })
 })
