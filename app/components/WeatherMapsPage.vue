@@ -4,7 +4,6 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import '~/assets/css/weather-maps-page.css'
 
 const {
-  activeFocusHeight,
   activeLayer,
   activeLayerDef,
   bootstrapped,
@@ -32,7 +31,6 @@ const {
   locationHref,
   locationRegion,
   openDistrict,
-  primaryHeight,
   setLayer,
   t,
   warningsSummary,
@@ -97,7 +95,7 @@ useSeoMeta({ title: 'Weather maps' })
           <WeatherMap
             :layer="activeLayer"
             :focus="null"
-            :height="primaryHeight"
+            variant="primary"
             :forecast-data="forecastData"
             :fire-data="FIRE"
             @pick="handlePick"
@@ -169,7 +167,7 @@ useSeoMeta({ title: 'Weather maps' })
             <WeatherMap
               :layer="activeLayer"
               :focus="focus"
-              :height="activeFocusHeight"
+              :variant="districtMapExpanded ? 'focus-expanded' : 'focus'"
               :forecast-data="forecastData"
               :fire-data="FIRE"
               @pick="handlePick"

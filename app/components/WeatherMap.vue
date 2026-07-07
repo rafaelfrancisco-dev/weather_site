@@ -30,7 +30,7 @@ import { getInitialView } from '~/utils/weather-map/view'
 const props = defineProps<{
   layer: MapLayer
   focus: MapFocus | null
-  height: number
+  variant: 'primary' | 'focus' | 'focus-expanded'
   forecastData: FcPoint[]
   fireData: Record<string, number>
 }>()
@@ -41,6 +41,12 @@ const settings = useSettings()
 const now = useNow()
 const { locations, stations, observations, warningsByArea, districtMap } = useLocationsData()
 const isDaytime = computed(() => isDaytimeAtWallMs(wallClockMs(now.value, 'Europe/Lisbon')))
+// The container's actual pixel height is CSS-driven (`.map-shell--*`, keyed to
+// MOBILE_MEDIA_QUERY) rather than an inline style computed from `mobile.value`,
+// so the SSR/hydration-time markup never depends on client-only viewport
+// detection — see useViewport()'s "must not gate SSR-visible layout" contract.
+// This still needs to trigger a mapbox resize when the effective size changes.
+const { mobile } = useViewport()
 
 const mapEl = ref<HTMLDivElement | null>(null)
 
@@ -52,7 +58,7 @@ const { mapReady, noToken, getMap } = useMapboxMap({
   container: mapEl,
   initialView: () => getInitialView(props.focus),
   popupMaxWidth: '220px',
-  resizeOn: () => props.height,
+  resizeOn: () => `${props.variant}:${mobile.value}`,
   onLoad: async (map, _mapboxgl, popup) => {
     await loadWeatherIcons(map)
     initSources(map)
@@ -326,7 +332,7 @@ watch(
 </script>
 
 <template>
-  <div :style="{ position: 'relative', width: '100%', height: `${props.height}px` }">
+  <div class="map-shell" :class="`map-shell--${props.variant}`">
     <div ref="mapEl" style="position:absolute;inset:0;border-radius:inherit;" />
 
     <div
@@ -344,3 +350,36 @@ watch(
     </div>
   </div>
 </template>
+
+<style scoped>
+.map-shell {
+  position: relative;
+  width: 100%;
+}
+
+.map-shell--primary {
+  height: 640px;
+}
+
+.map-shell--focus {
+  height: 560px;
+}
+
+.map-shell--focus-expanded {
+  height: 760px;
+}
+
+@media (max-width: 700px), ((pointer: coarse) and (max-width: 1024px)) {
+  .map-shell--primary {
+    height: 430px;
+  }
+
+  .map-shell--focus {
+    height: 440px;
+  }
+
+  .map-shell--focus-expanded {
+    height: 620px;
+  }
+}
+</style>

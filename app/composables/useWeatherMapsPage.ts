@@ -53,7 +53,7 @@ export function useWeatherMapsPage() {
   const { focusedLocations, focusedDistrictWarning, isCapitalLoc, locationRegion, locationData } =
     useFocusedLocationForecasts(focus, lang, districtWarnings, forecastData)
 
-  const { primaryHeight, activeFocusHeight, districtMapToggleLabel } = useMapsPageLayout(districtMapExpanded, lang)
+  const { districtMapToggleLabel } = useMapsPageLayout(districtMapExpanded, lang)
 
   const latestObservation = computed(() => {
     const latest = observations.value.reduce<string | null>((max, obs) => {
@@ -87,7 +87,6 @@ export function useWeatherMapsPage() {
   }
 
   return {
-    activeFocusHeight,
     activeLayer,
     activeLayerDef,
     bootstrapped,
@@ -115,7 +114,6 @@ export function useWeatherMapsPage() {
     locationHref,
     locationRegion,
     openDistrict,
-    primaryHeight,
     setLayer,
     t,
     warningsSummary,
