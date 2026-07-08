@@ -31,18 +31,6 @@ if (canonicalPath.value && route.path !== canonicalPath.value) {
   await navigateTo(canonicalPath.value, { redirectCode: 301, replace: true })
 }
 
-const site = useSiteConfig()
-useHead({
-  link: computed(() => {
-    if (!canonicalPath.value || !site.url) return []
-    const href = `${site.url.replace(/\/+$/, '')}${canonicalPath.value}`
-    return [
-      { rel: 'canonical', href },
-      { rel: 'alternate', hreflang: 'x-default', href }
-    ]
-  })
-})
-
 // Client-only: settings is a module-level singleton (useSettings.ts) shared
 // across requests on a warm serverless instance — writing it during SSR
 // would leak one request's location into another's render. A server-side
@@ -70,21 +58,37 @@ const {
   observationGrid
 } = useLocationForecast(id, lang, t)
 
+const seoTitle = computed(() => locationMeta.value?.name ?? 'MET·PT')
+const seoDescription = computed(() => locationMeta.value
+  ? `${locationMeta.value.name} weather forecast, observations, and warnings from IPMA.`
+  : 'Portugal weather forecasts, observations, and warnings from IPMA.')
+const imageDescription = computed(() => {
+  if (!locationMeta.value) return seoDescription.value
+  if (warningBanner.value.level) {
+    return `${locationMeta.value.name}: ${warningBanner.value.label} weather warning active. Forecast, observations, and IPMA warnings.`
+  }
+  return `${locationMeta.value.name}: forecast, observations, and IPMA warnings.`
+})
+
+const { canonicalUrl } = usePageSeoMeta({
+  title: seoTitle,
+  description: seoDescription,
+  path: computed(() => canonicalPath.value ?? route.path),
+  imageTitle: computed(() => locationMeta.value ? `${locationMeta.value.name} weather` : 'MET·PT'),
+  imageDescription,
+  eyebrow: 'Location forecast',
+})
+
+useHead({
+  link: computed(() => canonicalUrl.value
+    ? [{ rel: 'alternate', hreflang: 'x-default', href: canonicalUrl.value }]
+    : []),
+})
+
 const tabs = computed(() => [
   { key: 'forecast' as const, label: t.value.forecast },
   { key: 'obs' as const, label: t.value.obs }
 ])
-
-useSeoMeta({
-  title: computed(() => locationMeta.value?.name ?? 'MET·PT'),
-  description: computed(() => locationMeta.value
-    ? `${locationMeta.value.name} weather forecast, observations, and warnings from IPMA.`
-    : 'Portugal weather forecasts, observations, and warnings from IPMA.'),
-  ogTitle: computed(() => locationMeta.value ? `${locationMeta.value.name} - MET·PT` : 'MET·PT'),
-  ogDescription: computed(() => locationMeta.value
-    ? `${locationMeta.value.name} weather forecast, observations, and warnings from IPMA.`
-    : 'Portugal weather forecasts, observations, and warnings from IPMA.')
-})
 </script>
 
 <template>

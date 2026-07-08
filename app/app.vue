@@ -3,13 +3,11 @@ useHead({
   titleTemplate: title => title === 'MET·PT' ? title : `${title} - MET·PT`
 })
 
-useSeoMeta({
+usePageSeoMeta({
   title: 'MET·PT',
   description: 'Portugal weather forecasts, observations, and warnings from IPMA.',
-  ogTitle: 'MET·PT',
-  ogDescription: 'Portugal weather forecasts, observations, and warnings from IPMA.',
-  ogType: 'website',
-  twitterCard: 'summary'
+  imageTitle: 'MET·PT',
+  imageDescription: 'Portugal weather forecasts, observations, and warnings from IPMA.',
 })
 </script>
 

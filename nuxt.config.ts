@@ -52,7 +52,16 @@ export default defineNuxtConfig({
     mergeWithRobotsTxtPath: false
   },
   ogImage: {
-    enabled: false
+    enabled: true,
+    cacheMaxAgeSeconds: 3600,
+    defaults: {
+      component: 'OgImageMetPt',
+      width: 1200,
+      height: 630,
+      renderer: 'satori',
+      extension: 'png',
+      cacheMaxAgeSeconds: 3600
+    }
   },
   schemaOrg: {
     enabled: true
@@ -75,7 +84,9 @@ export default defineNuxtConfig({
       // function that forgets swr: false) so they can't live in Redis
       // forever; 90000s (25h) comfortably outlives the longest maxAge in use
       // (86400s).
-      cache: { driver: 'redis', url: process.env.REDIS_URL, ttl: 90000 }
+      cache: process.env.REDIS_URL
+        ? { driver: 'redis', url: process.env.REDIS_URL, ttl: 90000 }
+        : { driver: 'fs', base: './.data/cache', ttl: 90000 }
     },
     devStorage: {
       cache: { driver: 'fs', base: './.data/cache' }

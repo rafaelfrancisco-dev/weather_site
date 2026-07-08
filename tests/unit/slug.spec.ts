@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { districtSlugMatches, isValidLocationSlug, locationHref, parseLocationId, slugify } from '#shared/slug'
+import {
+  districtHref,
+  districtRouteMetaForSlug,
+  districtSlugMatches,
+  isValidLocationSlug,
+  locationHref,
+  parseLocationId,
+  slugify,
+} from '#shared/slug'
 
 describe('slugify', () => {
   it('strips diacritics', () => {
@@ -56,6 +64,25 @@ describe('districtSlugMatches — Açores/Azores special-case', () => {
   it('matches ordinary districts by their own slug', () => {
     expect(districtSlugMatches('Bragança', 'braganca')).toBe(true)
     expect(districtSlugMatches('Bragança', 'porto')).toBe(false)
+  })
+})
+
+describe('districtRouteMetaForSlug', () => {
+  it('resolves canonical district metadata for map routes', () => {
+    expect(districtRouteMetaForSlug('lisboa')).toEqual({ name: 'Lisboa', group: 'mainland' })
+    expect(districtRouteMetaForSlug('madeira')).toEqual({ name: 'Madeira', group: 'madeira' })
+    expect(districtRouteMetaForSlug('acores')).toEqual({ name: 'Açores', group: 'azores' })
+  })
+
+  it('resolves the legacy Azores slug to the canonical Açores route metadata', () => {
+    const meta = districtRouteMetaForSlug('azores')
+
+    expect(meta).toEqual({ name: 'Açores', group: 'azores' })
+    expect(meta ? districtHref(meta.name) : null).toBe('/maps/acores')
+  })
+
+  it('returns null for unknown district slugs', () => {
+    expect(districtRouteMetaForSlug('not-a-district')).toBeNull()
   })
 })
 

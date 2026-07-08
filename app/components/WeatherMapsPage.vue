@@ -1,7 +1,33 @@
 <script setup lang="ts">
 import type { WarningLevel } from '~/utils/colors'
+import { districtHref, districtRouteMetaForSlug } from '#shared/slug'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import '~/assets/css/weather-maps-page.css'
+
+const route = useRoute()
+const routeDistrictMeta = computed(() => {
+  const slug = route.params.districtSlug
+  return typeof slug === 'string' ? districtRouteMetaForSlug(slug) : null
+})
+const routeDistrictName = computed(() => routeDistrictMeta.value?.name ?? null)
+const seoTitle = computed(() => routeDistrictName.value ? `${routeDistrictName.value} weather maps` : 'Weather maps')
+const seoDescription = computed(() => routeDistrictName.value
+  ? `${routeDistrictName.value} weather maps with IPMA forecasts, observations, warnings, fire risk, UV, and sea conditions.`
+  : 'National weather maps for Portugal with IPMA forecasts, observations, warnings, fire risk, UV, and sea conditions.')
+const seoPath = computed(() => routeDistrictMeta.value ? districtHref(routeDistrictMeta.value.name) : '/maps')
+const seoImageDescription = computed(() => routeDistrictName.value
+  ? `District-level forecast, warning, observation, fire risk, UV, and sea condition maps for ${routeDistrictName.value}.`
+  : 'Forecast, observation, warning, fire risk, UV, and sea condition maps for Portugal.')
+
+usePageSeoMeta({
+  title: seoTitle,
+  description: seoDescription,
+  path: seoPath,
+  imageTitle: seoTitle,
+  imageDescription: seoImageDescription,
+  eyebrow: computed(() => routeDistrictName.value ? 'District weather maps' : 'Portugal weather maps'),
+  accent: '#2f6fb0',
+})
 
 const {
   activeLayer,
@@ -48,8 +74,6 @@ function scrollActiveLayerIntoView() {
 }
 
 watch(activeLayer, scrollActiveLayerIntoView, { immediate: true })
-
-useSeoMeta({ title: 'Weather maps' })
 </script>
 
 <template>
