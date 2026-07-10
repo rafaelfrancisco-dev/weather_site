@@ -1,6 +1,8 @@
 import { mkdirSync, copyFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
+import { cacheStorageConfig } from './config/cacheStorage'
+import { ogImageSecret } from './config/ogImageSecurity'
 
 // Nitro rewrites `import.meta.resolve`/`import.meta.url` inside bundled server
 // chunks, so resolving the wasm binary at runtime (server/utils/ipma.ts) isn't
@@ -8,6 +10,8 @@ import { join } from 'node:path'
 // still runs as plain Node, and stage it as a Nitro server asset so it ships
 // with the function without being committed to the repo.
 const ipmaWasmDir = fileURLToPath(new URL('./.nitro/ipma-wasm', import.meta.url))
+const imageSigningSecret = ogImageSecret(process.env)
+
 mkdirSync(ipmaWasmDir, { recursive: true })
 copyFileSync(
   fileURLToPath(import.meta.resolve('@rafaelfrancisco-dev/ipma-weather-js/wasm')),
@@ -54,6 +58,12 @@ export default defineNuxtConfig({
   ogImage: {
     enabled: true,
     cacheMaxAgeSeconds: 3600,
+    security: {
+      strict: true,
+      secret: imageSigningSecret,
+      maxQueryParamSize: 2048,
+      restrictRuntimeImagesToOrigin: true,
+    },
     defaults: {
       component: 'OgImageMetPt',
       width: 1200,
@@ -84,9 +94,7 @@ export default defineNuxtConfig({
       // function that forgets swr: false) so they can't live in Redis
       // forever; 90000s (25h) comfortably outlives the longest maxAge in use
       // (86400s).
-      cache: process.env.REDIS_URL
-        ? { driver: 'redis', url: process.env.REDIS_URL, ttl: 90000 }
-        : { driver: 'fs', base: './.data/cache', ttl: 90000 }
+      cache: cacheStorageConfig(process.env.REDIS_URL)
     },
     devStorage: {
       cache: { driver: 'fs', base: './.data/cache' }

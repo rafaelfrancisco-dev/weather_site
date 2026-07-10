@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DISTRICT_ROUTE_META,
   districtHref,
   districtRouteMetaForSlug,
   districtSlugMatches,
@@ -68,6 +69,13 @@ describe('districtSlugMatches — Açores/Azores special-case', () => {
 })
 
 describe('districtRouteMetaForSlug', () => {
+  it('round-trips every supported district through its canonical route', () => {
+    for (const district of DISTRICT_ROUTE_META) {
+      const slug = districtHref(district.name).split('/').pop()!
+      expect(districtRouteMetaForSlug(slug)).toEqual(district)
+    }
+  })
+
   it('resolves canonical district metadata for map routes', () => {
     expect(districtRouteMetaForSlug('lisboa')).toEqual({ name: 'Lisboa', group: 'mainland' })
     expect(districtRouteMetaForSlug('madeira')).toEqual({ name: 'Madeira', group: 'madeira' })

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { absoluteSiteUrl, pageDescription, pageTitle, trimTrailingSlash } from '~/utils/seo'
+import {
+  absoluteSiteUrl,
+  locationImageDescription,
+  pageDescription,
+  pageTitle,
+  trimTrailingSlash,
+} from '~/utils/seo'
 
 describe('trimTrailingSlash', () => {
   it('removes trailing slashes from origins', () => {
@@ -25,5 +31,19 @@ describe('page metadata defaults', () => {
   it('normalizes blank titles and descriptions to site defaults', () => {
     expect(pageTitle('')).toBe('MET·PT')
     expect(pageDescription('  ')).toBe('Portugal weather forecasts, observations, and warnings from IPMA.')
+  })
+})
+
+describe('locationImageDescription', () => {
+  it('includes an active warning level when present', () => {
+    expect(locationImageDescription('Lisboa', 'Yellow')).toBe(
+      'Lisboa: Yellow weather warning active. Forecast, observations, and IPMA warnings.',
+    )
+  })
+
+  it('uses neutral forecast copy without a warning', () => {
+    expect(locationImageDescription('Porto')).toBe(
+      'Porto: forecast, observations, and IPMA warnings.',
+    )
   })
 })

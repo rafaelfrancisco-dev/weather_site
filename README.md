@@ -17,6 +17,7 @@ Nuxt 4 / Vue 3 weather app for Portugal. It shows IPMA forecasts, observations, 
 - `GITHUB_PACKAGES_TOKEN` with access to `@rafaelfrancisco-dev/ipma-weather-js`
 - Optional for maps: `NUXT_PUBLIC_MAPBOX_TOKEN`
 - Optional for production SEO: `NUXT_SITE_URL`
+- Required for Vercel deployments: `NUXT_OG_IMAGE_SECRET`
 - Optional for production cache: `REDIS_URL`
 - Optional for source-map upload: `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
 
@@ -44,7 +45,7 @@ Start the app at `http://localhost:3000`:
 npm run dev
 ```
 
-Run the unit tests:
+Run the unit and Nuxt integration tests:
 
 ```bash
 npm test
@@ -106,6 +107,19 @@ Set the production site URL, for example:
 ```bash
 vercel env add NUXT_SITE_URL production
 ```
+
+Runtime Open Graph images use signed URLs. Generate a stable signing secret and
+configure the same value for Vercel Preview and Production deployments:
+
+```bash
+npx nuxt-og-image generate-secret
+vercel env add NUXT_OG_IMAGE_SECRET preview
+vercel env add NUXT_OG_IMAGE_SECRET production
+```
+
+Local development and builds use a local-only fallback signing key when the
+environment variable is absent. Vercel deployments fail configuration if the
+secret is missing.
 
 The health endpoint is `/api/health`. It checks local WASM loading and cache storage only; it does not call IPMA upstream.
 

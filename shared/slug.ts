@@ -6,7 +6,7 @@ export interface DistrictRouteMeta {
   group: DistrictGroup
 }
 
-const DISTRICT_ROUTE_META: DistrictRouteMeta[] = [
+export const DISTRICT_ROUTE_META: readonly DistrictRouteMeta[] = [
   { name: 'Viana do Castelo', group: 'mainland' },
   { name: 'Braga', group: 'mainland' },
   { name: 'Vila Real', group: 'mainland' },

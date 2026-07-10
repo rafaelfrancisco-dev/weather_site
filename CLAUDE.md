@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev` — start dev server (`http://localhost:3000`)
 - `npm run build` — production build; **use this to validate TypeScript compiles**, since `npx nuxi typecheck` is currently broken in this repo (`@nuxt/devtools` fails to dynamically import vite during `loadNuxt`)
 - `npm run generate` / `npm run preview` — static generate / preview a production build locally
-- `npm test` — runs the Vitest unit suite (`vitest.config.ts`, tests under `tests/unit/**/*.spec.ts`) against the pure transform/util modules (`app/utils/*Transform.ts`, `colors.ts`, `shared/slug.ts`). Runs with `TZ=Europe/Lisbon` since date/weekday formatting in those modules is local-time-based. Component/composable behavior is not covered — verify UI changes manually per the guidance below.
+- `npm test` — runs the pure Vitest unit suite and the Nuxt integration suite. Use `npm run test:unit` or `npm run test:nuxt` for an individual suite. Both run with `TZ=Europe/Lisbon`; the Nuxt suite uses deterministic API fixtures under `tests/fixtures/seo-app`.
 
 ### Install quirk
 
@@ -59,6 +59,11 @@ There is no i18n module — `app/utils/i18n.ts` exports a `strings(lang)` lookup
 ### SEO indexability requires `NUXT_SITE_URL`
 
 `site.indexable` (`nuxt.config.ts`) is only `true` when `VERCEL_ENV === 'production'` **and** `NUXT_SITE_URL` is set — without `NUXT_SITE_URL` in the production Vercel env, the site ships `noindex` and broken canonical/sitemap URLs even in production. Set it to the real production URL (e.g. `https://weather-site.vercel.app`) via `vercel env add NUXT_SITE_URL production`.
+
+Runtime OG image URLs are signed with `NUXT_OG_IMAGE_SECRET`. Configure one
+stable generated value in both Vercel Preview and Production; `nuxt.config.ts`
+rejects Vercel deployments where it is absent. Local commands use a local-only
+fallback key so installs and builds remain self-contained.
 
 ### Error reporting: Sentry (`@sentry/nuxt`)
 

@@ -64,10 +64,8 @@ const seoDescription = computed(() => locationMeta.value
   : 'Portugal weather forecasts, observations, and warnings from IPMA.')
 const imageDescription = computed(() => {
   if (!locationMeta.value) return seoDescription.value
-  if (warningBanner.value.level) {
-    return `${locationMeta.value.name}: ${warningBanner.value.label} weather warning active. Forecast, observations, and IPMA warnings.`
-  }
-  return `${locationMeta.value.name}: forecast, observations, and IPMA warnings.`
+  const warningLevel = warningBanner.value.hasWarn ? warningBanner.value.banner?.level : null
+  return locationImageDescription(locationMeta.value.name, warningLevel)
 })
 
 const { canonicalUrl } = usePageSeoMeta({

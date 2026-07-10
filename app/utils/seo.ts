@@ -21,3 +21,9 @@ export function pageTitle(title?: string | null): string {
 export function pageDescription(description?: string | null): string {
   return description?.trim() || SITE_DESCRIPTION
 }
+
+export function locationImageDescription(name: string, warningLevel?: string | null): string {
+  return warningLevel
+    ? `${name}: ${warningLevel} weather warning active. Forecast, observations, and IPMA warnings.`
+    : `${name}: forecast, observations, and IPMA warnings.`
+}
