@@ -18,17 +18,31 @@ interface ForecastResult {
   periods: JSHourlyForecastPeriod[]
 }
 
+interface CachedForecast {
+  forecast: ForecastResult
+  fetchedAt: number
+}
+
 interface ForecastPayload {
   locationId: number | null
   forecast: ForecastResult | null
 }
+
+// Matches cachedForecast's maxAge (server/utils/ipma.ts) and mirrors
+// REVALIDATE_BOOTSTRAP_AFTER_MS in useLocationsData.ts — a cache entry older
+// than what the server itself would consider stale gets refetched in the
+// background. Accepted limitation: /api/forecast/** sits behind its own 3600s
+// ISR rule, so the first revalidation after a long idle can still return an
+// up-to-~1h-stale response while Vercel regenerates it — bounded and
+// self-healing, versus a client cache that never expired at all.
+const REVALIDATE_FORECAST_AFTER_MS = 60 * 60 * 1000
 
 export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: Ref<Record<string, string>>) {
   const { locations, districtMap, warningsByArea, stations, observations, labelFor } = useLocationsData()
   const settings = useSettings()
   const now = useNow()
   const requestFetch = useRequestFetch()
-  const forecastCache = useState<Record<string, ForecastResult>>('ipma-forecast-client-cache', () => ({}))
+  const forecastCache = useState<Record<string, CachedForecast>>('ipma-forecast-client-cache', () => ({}))
 
   const selectedLocation = computed(() => locations.value.find(l => l.id === id.value) ?? null)
   const selectedLocationId = computed(() => selectedLocation.value?.id ?? null)
@@ -53,17 +67,49 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
 
   if (import.meta.client) {
     // Seed the client cache with the server-rendered forecast before the watch
-    // below runs, so hydration reuses it instead of re-fetching.
+    // below runs, so hydration reuses it instead of re-fetching. fetchedAt is
+    // the server render clock — useNow()'s value at setup time is still the
+    // serialized payload timestamp (the bump to real time happens later, in
+    // onNuxtReady) — so a stale ISR page seeds an already-old entry, which the
+    // now-watcher below revalidates as soon as the clock bumps.
     if (initialId != null && ssrForecast.value) {
-      forecastCache.value[`ipma-forecast-${initialId}`] = ssrForecast.value
+      forecastCache.value[`ipma-forecast-${initialId}`] = { forecast: ssrForecast.value, fetchedAt: now.value }
     }
 
     let requestId = 0
     let controller: AbortController | null = null
 
-    watch(selectedLocationId, async (locationId) => {
+    // background: stale data is already on screen, so don't touch
+    // forecastLoading (no skeleton flash) and report failures to Sentry
+    // instead of surfacing them — the stale forecast stays up.
+    async function fetchForecast(locationId: number, key: string, background: boolean) {
       requestId += 1
       const currentRequestId = requestId
+      controller?.abort()
+      controller = new AbortController()
+      if (!background) forecastLoading.value = true
+
+      try {
+        const forecast = await requestFetch<ForecastResult>(`/api/forecast/${locationId}`, { signal: controller.signal })
+        if (currentRequestId !== requestId || selectedLocationId.value !== locationId) return
+        forecastCache.value[key] = { forecast, fetchedAt: Date.now() }
+        forecastPayload.value = { locationId, forecast }
+      } catch (error) {
+        if ((error as { name?: string }).name === 'AbortError') return
+        if (background) {
+          Sentry.captureException(error)
+        } else if (currentRequestId === requestId && selectedLocationId.value === locationId) {
+          forecastErrorRaw.value = error
+        }
+      } finally {
+        if (!background && currentRequestId === requestId) {
+          forecastLoading.value = false
+        }
+      }
+    }
+
+    watch(selectedLocationId, (locationId) => {
+      requestId += 1
       controller?.abort()
       controller = null
       forecastErrorRaw.value = null
@@ -75,33 +121,34 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
       }
 
       const key = forecastKey.value
-      const cachedForecast = forecastCache.value[key]
-      forecastPayload.value = { locationId, forecast: cachedForecast ?? null }
+      const cached = forecastCache.value[key]
+      forecastPayload.value = { locationId, forecast: cached?.forecast ?? null }
 
-      if (cachedForecast) {
+      if (cached) {
         forecastLoading.value = false
+        // Stale-while-revalidate: the cached forecast paints immediately, but
+        // an entry past the freshness window kicks off a background refetch
+        // that replaces it on success.
+        if (now.value - cached.fetchedAt >= REVALIDATE_FORECAST_AFTER_MS) {
+          void fetchForecast(locationId, key, true)
+        }
         return
       }
 
-      controller = new AbortController()
-      forecastLoading.value = true
-
-      try {
-        const forecast = await requestFetch<ForecastResult>(`/api/forecast/${locationId}`, { signal: controller.signal })
-        if (currentRequestId !== requestId || selectedLocationId.value !== locationId) return
-        forecastCache.value[key] = forecast
-        forecastPayload.value = { locationId, forecast }
-      } catch (error) {
-        if ((error as { name?: string }).name === 'AbortError') return
-        if (currentRequestId === requestId && selectedLocationId.value === locationId) {
-          forecastErrorRaw.value = error
-        }
-      } finally {
-        if (currentRequestId === requestId) {
-          forecastLoading.value = false
-        }
-      }
+      void fetchForecast(locationId, key, false)
     }, { immediate: true, flush: 'sync' })
+
+    // Revalidate when the frozen clock bumps (post-hydration via onNuxtReady,
+    // and on every visibilitychange → visible): one watcher covers both a
+    // stale ISR payload seeded above and a tab left open past the window.
+    watch(now, (nowMs) => {
+      const locationId = selectedLocationId.value
+      if (locationId == null || forecastLoading.value) return
+      const key = forecastKey.value
+      const cached = forecastCache.value[key]
+      if (cached && nowMs - cached.fetchedAt < REVALIDATE_FORECAST_AFTER_MS) return
+      void fetchForecast(locationId, key, cached != null)
+    })
 
     onBeforeUnmount(() => {
       controller?.abort()
@@ -193,15 +240,16 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
 // will retry and surface them properly.
 export function usePrefetchForecast() {
   const requestFetch = useRequestFetch()
-  const forecastCache = useState<Record<string, ForecastResult>>('ipma-forecast-client-cache', () => ({}))
+  const forecastCache = useState<Record<string, CachedForecast>>('ipma-forecast-client-cache', () => ({}))
   const inflight = useState<Record<string, true>>('ipma-forecast-inflight', () => ({}))
 
   function prefetch(locationId: number) {
     const key = `ipma-forecast-${locationId}`
-    if (forecastCache.value[key] || inflight.value[key]) return
+    const cached = forecastCache.value[key]
+    if ((cached && Date.now() - cached.fetchedAt < REVALIDATE_FORECAST_AFTER_MS) || inflight.value[key]) return
     inflight.value[key] = true
     requestFetch<ForecastResult>(`/api/forecast/${locationId}`)
-      .then((forecast) => { forecastCache.value[key] = forecast })
+      .then((forecast) => { forecastCache.value[key] = { forecast, fetchedAt: Date.now() } })
       .catch((error) => { Sentry.captureException(error) })
       .finally(() => { delete inflight.value[key] })
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildLocationMeta, buildLocationTree, buildWarningBanner } from '~/utils/locationTransform'
+import { buildLocationMeta, buildLocationTree, buildWarningBanner, isWarningActive } from '~/utils/locationTransform'
 import type { JSDistrict, JSLocation, JSWeatherWarning } from '#shared/ipma-types'
 
 function loc(overrides: Partial<JSLocation> = {}): JSLocation {
@@ -36,6 +36,36 @@ function warning(overrides: Partial<JSWeatherWarning> = {}): JSWeatherWarning {
 
 const districtMap = new Map<number, JSDistrict>([[11, district({ id: 11, name: 'Lisboa' })], [13, district({ id: 13, regionID: 1, name: 'Porto' })]])
 const now = new Date('2026-07-02T12:00:00Z').getTime()
+
+describe('isWarningActive', () => {
+  // The live warnings feed serves zoneless UTC instants (e.g.
+  // "2026-07-13T05:08:00" — IPMA's open-data times are all UTC). This suite
+  // runs with TZ=Europe/Lisbon (UTC+1 for these July dates), so the ±30min
+  // boundary cases below fail if the timestamps are ever parsed in the
+  // process TZ again — which is exactly the server/client hydration skew the
+  // wallParseMs switch fixed.
+  const at = new Date('2026-07-13T10:00:00Z')
+
+  it('is not active before a zoneless UTC start 30min in the future', () => {
+    const w = warning({ startTime: '2026-07-13T10:30:00', endTime: '2026-07-13T20:00:00' })
+    expect(isWarningActive(w, at)).toBe(false)
+  })
+
+  it('is active once now passes the zoneless UTC start', () => {
+    const w = warning({ startTime: '2026-07-13T09:30:00', endTime: '2026-07-13T20:00:00' })
+    expect(isWarningActive(w, at)).toBe(true)
+  })
+
+  it('is inactive after the zoneless UTC end', () => {
+    const w = warning({ startTime: '2026-07-13T00:00:00', endTime: '2026-07-13T09:30:00' })
+    expect(isWarningActive(w, at)).toBe(false)
+  })
+
+  it('accepts explicitly Z-suffixed timestamps unchanged', () => {
+    const w = warning({ startTime: '2026-07-13T09:30:00Z', endTime: '2026-07-13T10:30:00Z' })
+    expect(isWarningActive(w, at)).toBe(true)
+  })
+})
 
 describe('buildLocationTree', () => {
   it('groups mainland locations by district and non-mainland by region', () => {

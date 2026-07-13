@@ -338,6 +338,10 @@ onMounted(scrollCurrentHourIntoView)
 }
 
 .hourly-strip {
+  /* Positioned so scrollCurrentHourIntoView's current.offsetLeft is measured
+     from the strip itself, not some higher offsetParent — without this the
+     centering math includes unrelated ancestor offset. */
+  position: relative;
   display: flex;
   gap: 8px;
   overflow-x: auto;

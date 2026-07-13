@@ -6,7 +6,7 @@ import type {
 } from '#shared/ipma-types'
 import { levelColor, levelLabelTxt, levelRank, levelSoft } from '~/utils/colors'
 import type { WarningLevel } from '~/utils/colors'
-import { dateTimeLabel } from '~/utils/format'
+import { dateTimeLabel, wallParseMs } from '~/utils/format'
 import type { Lang } from '~/utils/i18n'
 
 const REGION_LABELS: Record<number, { en: string, pt: string }> = {
@@ -20,9 +20,15 @@ export function regionLabel(regionID: number, lang: Lang): string {
   return entry ? entry[lang] : `Region ${regionID}`
 }
 
+// Warning start/end times are zoneless UTC instants (IPMA's open-data API
+// serves all times in UTC), so wallParseMs — which anchors the digits as UTC —
+// yields the real epoch ms here, directly comparable to `now`. new Date(...)
+// parsed them in the process TZ instead, so a UTC server and a
+// Lisbon-summer-time client disagreed by 1h on whether a warning was active
+// near its boundaries, diverging SSR-rendered warning UI at hydration.
 export function isWarningActive(w: JSWeatherWarning, now = new Date()): boolean {
-  const start = new Date(w.startTime).getTime()
-  const end = new Date(w.endTime).getTime()
+  const start = wallParseMs(w.startTime)
+  const end = wallParseMs(w.endTime)
   return now.getTime() >= start && now.getTime() <= end
 }
 

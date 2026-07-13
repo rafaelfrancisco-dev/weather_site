@@ -36,8 +36,11 @@ export function isDaytime(isoDate: string): boolean {
 // wall-clock strings, not UTC instants — appending "Z" anchors the same digits
 // as a UTC instant so they can be diffed against a wall-clock "now" (see
 // wallClockMs) without either side being skewed by the parsing environment's TZ.
+// A string that already carries an explicit "Z" is passed through unchanged —
+// it is already the anchored form.
 export function wallParseMs(isoLocal: string): number {
-  return isoLocal.includes('T') ? Date.parse(`${isoLocal}Z`) : Date.parse(isoLocal)
+  if (!isoLocal.includes('T') || isoLocal.endsWith('Z')) return Date.parse(isoLocal)
+  return Date.parse(`${isoLocal}Z`)
 }
 
 const wallClockFormatters = new Map<string, Intl.DateTimeFormat>()

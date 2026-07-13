@@ -9,6 +9,10 @@ describe('wallParseMs', () => {
   it('parses a date-only string without appending Z', () => {
     expect(wallParseMs('2026-07-02')).toBe(Date.parse('2026-07-02'))
   })
+
+  it('passes an already-Z-suffixed datetime through unchanged', () => {
+    expect(wallParseMs('2026-07-02T13:00:00Z')).toBe(Date.UTC(2026, 6, 2, 13, 0, 0))
+  })
 })
 
 describe('wallClockMs', () => {
