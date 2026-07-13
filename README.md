@@ -9,6 +9,7 @@ Nuxt 4 / Vue 3 weather app for Portugal. It shows IPMA forecasts, observations, 
 - Provides weather maps at `/maps` and `/maps/{districtSlug}` with layers for temperature, warnings, fire risk, wind, UV, and precipitation.
 - Fetches locations, districts, forecasts, observations, warnings, and weather types from IPMA through the private `@rafaelfrancisco-dev/ipma-weather-js` Rust/WASM package.
 - Uses Nuxt SEO, Sentry errors-only reporting, Vercel Analytics, and Vercel Speed Insights.
+- Is installable as a PWA, with network-only pages and a branded bilingual offline fallback.
 
 ## Requirements
 
@@ -122,6 +123,14 @@ environment variable is absent. Vercel deployments fail configuration if the
 secret is missing.
 
 The health endpoint is `/api/health`. It checks local WASM loading and cache storage only; it does not call IPMA upstream.
+
+## PWA
+
+The service worker never caches weather data, APIs, SSR pages, Open Graph
+images, fonts, Nuxt chunks, or Mapbox traffic. It only supplies the install
+manifest and a small explicit precache for the standalone offline fallback and
+icons. See [PWA operations](docs/pwa.md) for the Preview acceptance checklist
+and the required cleanup-worker rollback procedure.
 
 ## Notes For Changes
 

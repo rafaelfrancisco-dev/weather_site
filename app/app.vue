@@ -1,6 +1,14 @@
 <script setup lang="ts">
 useHead({
-  titleTemplate: title => title === 'MET·PT' ? title : `${title} - MET·PT`
+  titleTemplate: title => title === 'MET·PT' ? title : `${title} - MET·PT`,
+  meta: [
+    { name: 'apple-mobile-web-app-capable', content: 'yes' },
+    { name: 'apple-mobile-web-app-title', content: 'MET·PT' },
+    { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+  ],
+  link: [
+    { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+  ],
 })
 
 usePageSeoMeta({
@@ -12,6 +20,7 @@ usePageSeoMeta({
 </script>
 
 <template>
+  <NuxtPwaManifest />
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>

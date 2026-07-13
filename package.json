@@ -23,6 +23,7 @@
     "@sentry/nuxt": "^10.63.0",
     "@vercel/analytics": "^2.1.0-canary",
     "@vercel/speed-insights": "^2.0.1-canary",
+    "@vite-pwa/nuxt": "^1.1.1",
     "@vueuse/nuxt": "^14.3.0",
     "chart.js": "^4.5.1",
     "ioredis": "^5.4.1",

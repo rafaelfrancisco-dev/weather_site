@@ -37,6 +37,77 @@ export default defineNuxtConfig({
       meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }]
     }
   },
+  pwa: {
+    strategies: 'generateSW',
+    registerType: 'prompt',
+    scope: '/',
+    includeManifestIcons: false,
+    manifest: {
+      id: '/',
+      scope: '/',
+      start_url: '/',
+      name: 'MET·PT',
+      short_name: 'MET·PT',
+      description: 'Portugal weather forecasts, observations, and warnings from IPMA.',
+      display: 'standalone',
+      lang: 'en',
+      categories: ['weather'],
+      theme_color: '#2f6fb0',
+      background_color: '#f7f8f8',
+      icons: [
+        { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+        { src: '/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    },
+    workbox: {
+      // This allowlist is intentionally exhaustive. The manifest transform
+      // below also removes Nuxt app-manifest files automatically proposed by
+      // the integration, keeping chunks, SSR output, and Mapbox out of Cache
+      // Storage while Workbox still revisions every offline asset.
+      globPatterns: [
+        'offline.html',
+        'favicon.ico',
+        'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'pwa-maskable-512x512.png',
+      ],
+      manifestTransforms: [
+        (entries) => {
+          const allowed = new Set([
+            'offline.html',
+            'favicon.ico',
+            'apple-touch-icon.png',
+            'pwa-192x192.png',
+            'pwa-512x512.png',
+            'pwa-maskable-512x512.png',
+          ])
+
+          return {
+            manifest: entries.filter(entry => allowed.has(entry.url.replace(/^\//, ''))),
+            warnings: [],
+          }
+        },
+      ],
+      navigateFallback: undefined,
+      navigationPreload: true,
+      runtimeCaching: [
+        {
+          urlPattern: ({ request }) => request.mode === 'navigate',
+          handler: 'NetworkOnly',
+          options: {
+            precacheFallback: {
+              fallbackURL: '/offline.html',
+            },
+          },
+        },
+      ],
+    },
+    client: {
+      installPrompt: false,
+    },
+  },
   site: {
     url: process.env.NUXT_SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined),
     name: 'MET·PT',
@@ -154,6 +225,14 @@ export default defineNuxtConfig({
       }
     },
     '/fonts/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
+    '/sw.js': { headers: { 'cache-control': 'public, max-age=0, must-revalidate' } },
+    '/manifest.webmanifest': {
+      headers: {
+        'cache-control': 'public, max-age=0, must-revalidate',
+        'content-type': 'application/manifest+json; charset=utf-8',
+      },
+    },
+    '/offline.html': { headers: { 'cache-control': 'public, max-age=0, must-revalidate' } },
     '/location/**': { isr: 3600 },
     '/api/locations': { isr: 86400 },
     '/api/districts': { isr: 86400 },
@@ -165,7 +244,19 @@ export default defineNuxtConfig({
     '/maps': { isr: 3600 },
     '/maps/**': { isr: 3600 }
   },
-  modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vercel/analytics', '@vercel/speed-insights', '@sentry/nuxt/module'],
+  modules: ['@vueuse/nuxt', '@nuxtjs/google-fonts', '@nuxtjs/seo', '@vite-pwa/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@sentry/nuxt/module'],
+  hooks: {
+    // The module adds the generated manifest after Workbox's glob transforms,
+    // so remove that one automatic entry at the final pre-build hook. The six
+    // revisioned offline assets come from the explicit glob allowlist above.
+    'pwa:beforeBuildServiceWorker': (options) => {
+      options.workbox.additionalManifestEntries = options.workbox.additionalManifestEntries?.filter((entry) => {
+        return typeof entry === 'string'
+          ? entry !== 'manifest.webmanifest'
+          : entry.url !== 'manifest.webmanifest'
+      })
+    },
+  },
   // Hidden client source maps so stack traces resolve in Sentry without
   // shipping readable source to the browser.
   sourcemap: { client: 'hidden' },
