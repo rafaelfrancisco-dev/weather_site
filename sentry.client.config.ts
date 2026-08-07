@@ -15,3 +15,6 @@ Sentry.init({
   enabled: import.meta.env.PROD,
   tracesSampleRate: 0
 })
+
+Sentry.metrics.count('user_action', 1);
+Sentry.metrics.distribution('api_response_time', 150);
