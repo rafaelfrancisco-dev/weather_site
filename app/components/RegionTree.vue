@@ -16,6 +16,27 @@ const emit = defineEmits<{
 }>()
 
 const { prefetch } = usePrefetchForecast()
+
+// Hover intent: without a delay, sweeping the cursor down the list fired a
+// forecast request for nearly every row it crossed (~10 requests for 15 rows).
+// One shared handle is enough — the pointer is only ever over one row.
+const HOVER_INTENT_MS = 100
+let hoverIntentTimer: ReturnType<typeof setTimeout> | null = null
+
+function onLocationHover(locationId: number) {
+  cancelHoverIntent()
+  hoverIntentTimer = setTimeout(() => {
+    hoverIntentTimer = null
+    prefetch(locationId)
+  }, HOVER_INTENT_MS)
+}
+
+function cancelHoverIntent() {
+  if (hoverIntentTimer) clearTimeout(hoverIntentTimer)
+  hoverIntentTimer = null
+}
+
+onBeforeUnmount(cancelHoverIntent)
 const { query, navOpen, closeNav } = useNavigation()
 const { mobile } = useViewport()
 const navEl = ref<HTMLElement | null>(null)
@@ -118,7 +139,8 @@ watch(navOpen, (open) => {
             fontWeight: loc.selected ? 600 : 450
           }"
           @click="closeNav"
-          @mouseenter="prefetch(loc.id)"
+          @mouseenter="onLocationHover(loc.id)"
+          @mouseleave="cancelHoverIntent"
         >
           <span style="flex:1;">{{ loc.name }}</span>
           <span v-if="loc.warn" :style="{ width: '8px', height: '8px', borderRadius: '50%', background: loc.warnColor, flex: 'none' }"></span>

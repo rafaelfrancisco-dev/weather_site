@@ -37,6 +37,33 @@ interface ForecastPayload {
 // self-healing, versus a client cache that never expired at all.
 const REVALIDATE_FORECAST_AFTER_MS = 60 * 60 * 1000
 
+// Hover prefetches are shared with the navigation fetch so a click that lands
+// while the prefetch is still in flight adopts that request instead of issuing
+// a duplicate one (it used to fire a second identical request and wait on the
+// slower of the two). Module-level rather than useState because both entry
+// points are client-only — the same guard pattern as useLocationsData.ts's
+// `revalidationWired` and useNow.ts's `nowListenersWired` — and because a
+// Promise must not end up in payload-serialized, deep-reactive state.
+//
+// Only prefetch writes here: its requests carry no AbortSignal, so an adopting
+// navigation can never abort a request another caller is also waiting on.
+const inflightPrefetches = new Map<number, Promise<ForecastResult>>()
+
+// The cache is keyed by location id and would otherwise grow without bound —
+// hovering across the ~300-location sidebar can accumulate every one of them.
+// Evicts oldest-first by fetchedAt; the entry just written is always newest, so
+// the displayed location is never the one evicted (and forecastPayload holds
+// the rendered forecast independently of the cache regardless).
+const FORECAST_CACHE_LIMIT = 30
+
+function writeForecastCache(cache: Record<string, CachedForecast>, key: string, entry: CachedForecast) {
+  cache[key] = entry
+  const keys = Object.keys(cache)
+  if (keys.length <= FORECAST_CACHE_LIMIT) return
+  keys.sort((a, b) => (cache[a]?.fetchedAt ?? 0) - (cache[b]?.fetchedAt ?? 0))
+  for (const stale of keys.slice(0, keys.length - FORECAST_CACHE_LIMIT)) delete cache[stale]
+}
+
 export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: Ref<Record<string, string>>) {
   const { locations, districtMap, warningsByArea, stations, observations, labelFor } = useLocationsData()
   const settings = useSettings()
@@ -51,6 +78,9 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
   const forecastPayload = shallowRef<ForecastPayload>({ locationId: null, forecast: null })
   const forecastLoading = ref(false)
   const forecastErrorRaw = shallowRef<unknown>(null)
+  // Assigned by the client-only block below; stays null during SSR, where
+  // there is nothing to retry.
+  let runFetch: ((locationId: number, key: string, background: boolean) => void) | null = null
 
   // The initial location's forecast is fetched during SSR (lazy async data is
   // still awaited via onServerPrefetch on the server) so the first HTML — the
@@ -73,7 +103,7 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     // onNuxtReady) — so a stale ISR page seeds an already-old entry, which the
     // now-watcher below revalidates as soon as the clock bumps.
     if (initialId != null && ssrForecast.value) {
-      forecastCache.value[`ipma-forecast-${initialId}`] = { forecast: ssrForecast.value, fetchedAt: now.value }
+      writeForecastCache(forecastCache.value, `ipma-forecast-${initialId}`, { forecast: ssrForecast.value, fetchedAt: now.value })
     }
 
     let requestId = 0
@@ -90,9 +120,16 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
       if (!background) forecastLoading.value = true
 
       try {
-        const forecast = await requestFetch<ForecastResult>(`/api/forecast/${locationId}`, { signal: controller.signal })
+        // Adopt an in-flight hover prefetch for this location rather than
+        // racing it. The adopted request carries no signal, so navigating away
+        // can't abort it — the requestId/selection guard below discards the
+        // result instead, and it still lands in the prefetch's own cache write.
+        const inflight = inflightPrefetches.get(locationId)
+        const forecast = inflight
+          ? await inflight
+          : await requestFetch<ForecastResult>(`/api/forecast/${locationId}`, { signal: controller.signal })
         if (currentRequestId !== requestId || selectedLocationId.value !== locationId) return
-        forecastCache.value[key] = { forecast, fetchedAt: Date.now() }
+        writeForecastCache(forecastCache.value, key, { forecast, fetchedAt: Date.now() })
         forecastPayload.value = { locationId, forecast }
       } catch (error) {
         if ((error as { name?: string }).name === 'AbortError') return
@@ -150,9 +187,20 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
       void fetchForecast(locationId, key, cached != null)
     })
 
+    runFetch = (locationId, key, background) => { void fetchForecast(locationId, key, background) }
+
     onBeforeUnmount(() => {
       controller?.abort()
     })
+  }
+
+  // Foreground retry for the error state in pages/location/[slug].vue — clears
+  // the error so the skeletons come back, then refetches.
+  function retryForecast() {
+    const locationId = selectedLocationId.value
+    if (locationId == null || !runFetch) return
+    forecastErrorRaw.value = null
+    runFetch(locationId, forecastKey.value, false)
   }
 
   const forecast = computed(() => {
@@ -221,6 +269,7 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
     forecast,
     forecastLoading,
     forecastError,
+    retryForecast,
     selectedLocation,
     locationMeta,
     warningBanner,
@@ -241,17 +290,25 @@ export function useLocationForecast(id: Ref<number | null>, lang: Ref<Lang>, t: 
 export function usePrefetchForecast() {
   const requestFetch = useRequestFetch()
   const forecastCache = useState<Record<string, CachedForecast>>('ipma-forecast-client-cache', () => ({}))
-  const inflight = useState<Record<string, true>>('ipma-forecast-inflight', () => ({}))
 
   function prefetch(locationId: number) {
     const key = `ipma-forecast-${locationId}`
     const cached = forecastCache.value[key]
-    if ((cached && Date.now() - cached.fetchedAt < REVALIDATE_FORECAST_AFTER_MS) || inflight.value[key]) return
-    inflight.value[key] = true
-    requestFetch<ForecastResult>(`/api/forecast/${locationId}`)
-      .then((forecast) => { forecastCache.value[key] = { forecast, fetchedAt: Date.now() } })
+    if (cached && Date.now() - cached.fetchedAt < REVALIDATE_FORECAST_AFTER_MS) return
+    if (inflightPrefetches.has(locationId)) return
+
+    // Deliberately no AbortSignal: useLocationForecast's navigation fetch may
+    // adopt this promise, and aborting a request another caller awaits would
+    // surface as a spurious error there.
+    const request = requestFetch<ForecastResult>(`/api/forecast/${locationId}`)
+    inflightPrefetches.set(locationId, request)
+
+    request
+      .then((forecast) => { writeForecastCache(forecastCache.value, key, { forecast, fetchedAt: Date.now() }) })
       .catch((error) => { Sentry.captureException(error) })
-      .finally(() => { delete inflight.value[key] })
+      .finally(() => {
+        if (inflightPrefetches.get(locationId) === request) inflightPrefetches.delete(locationId)
+      })
   }
 
   return { prefetch }

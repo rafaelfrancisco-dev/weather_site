@@ -39,6 +39,17 @@ async function retryBootstrap() {
 const t = computed(() => strings(settings.value.lang))
 const c = computed(() => accentColors(settings.value.accent))
 
+// <main> is the scroll container, not the document (.app-shell is 100dvh with
+// overflow:hidden), so Vue Router's scrollBehavior — which only ever touches
+// window scroll — never resets anything: navigating between locations used to
+// land you at the previous page's offset. Accepted limitation: back/forward
+// won't restore the old offset either, because router savedPosition records
+// window scroll, which is always 0 here.
+const mainEl = ref<HTMLElement | null>(null)
+watch(() => route.path, () => {
+  if (mainEl.value) mainEl.value.scrollTop = 0
+}, { flush: 'post' })
+
 const selectedId = computed(() => {
   if (route.name !== 'location-slug') return null
   return parseLocationId(route.params.slug as string)
@@ -102,7 +113,7 @@ useHead(() => ({
         @toggle-region="toggleRegion"
       />
 
-      <main style="flex:1; min-width:0; overflow-y:auto; background:var(--bg-page);">
+      <main ref="mainEl" style="flex:1; min-width:0; overflow-y:auto; background:var(--bg-page);">
         <div class="app-content">
           <slot />
         </div>

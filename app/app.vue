@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import { accentColors } from '~/utils/colors'
+
+const settings = useSettings()
+// Client-only chrome, so it sits outside the SSR/hydration divergence hazard
+// that useSettings.ts warns about — nothing here is SSR-visible layout.
+const loadingColor = computed(() => accentColors(settings.value.accent).primary)
+
 useHead({
   titleTemplate: title => title === 'MET·PT' ? title : `${title} - MET·PT`,
   meta: [
@@ -21,6 +28,8 @@ usePageSeoMeta({
 
 <template>
   <NuxtPwaManifest />
+  <NuxtLoadingIndicator :color="loadingColor" />
+  <NuxtRouteAnnouncer />
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
