@@ -263,8 +263,8 @@ export default defineNuxtConfig({
   sentry: {
     // 'top-level-import' is the documented mode for serverless/Vercel, where
     // the `node --import` flag isn't available; it only supports basic
-    // (http-level) tracing, which is fine since tracesSampleRate is 0 anyway
-    // (see sentry.server.config.ts) — we want error capture, not APM.
+    // (http-level) tracing. That covers the deployed request traces enabled in
+    // sentry.server.config.ts, but not deeper database-specific instrumentation.
     autoInjectServerSentry: 'top-level-import',
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
