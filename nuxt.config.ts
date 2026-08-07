@@ -10,7 +10,16 @@ import { ogImageSecret } from './config/ogImageSecurity'
 // still runs as plain Node, and stage it as a Nitro server asset so it ships
 // with the function without being committed to the repo.
 const ipmaWasmDir = fileURLToPath(new URL('./.nitro/ipma-wasm', import.meta.url))
+const serviceWorkerDir = fileURLToPath(new URL('./service-worker', import.meta.url))
 const imageSigningSecret = ogImageSecret(process.env)
+const offlineAssets = [
+  'offline.html',
+  'favicon.ico',
+  'apple-touch-icon.png',
+  'pwa-192x192.png',
+  'pwa-512x512.png',
+  'pwa-maskable-512x512.png',
+] as const
 
 mkdirSync(ipmaWasmDir, { recursive: true })
 copyFileSync(
@@ -38,10 +47,20 @@ export default defineNuxtConfig({
     }
   },
   pwa: {
-    strategies: 'generateSW',
+    strategies: 'injectManifest',
+    srcDir: serviceWorkerDir,
+    filename: 'sw.ts',
     registerType: 'prompt',
     scope: '/',
     includeManifestIcons: false,
+    integration: {
+      beforeBuildServiceWorker: (options) => {
+        options.injectManifest.additionalManifestEntries
+          = options.injectManifest.additionalManifestEntries?.filter(entry => (
+            typeof entry === 'string' || offlineAssets.includes(entry.url as typeof offlineAssets[number])
+          ))
+      },
+    },
     manifest: {
       id: '/',
       scope: '/',
@@ -60,47 +79,20 @@ export default defineNuxtConfig({
         { src: '/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
     },
-    workbox: {
+    injectManifest: {
       // This allowlist is intentionally exhaustive. The manifest transform
       // below also removes Nuxt app-manifest files automatically proposed by
       // the integration, keeping chunks, SSR output, and Mapbox out of Cache
       // Storage while Workbox still revisions every offline asset.
-      globPatterns: [
-        'offline.html',
-        'favicon.ico',
-        'apple-touch-icon.png',
-        'pwa-192x192.png',
-        'pwa-512x512.png',
-        'pwa-maskable-512x512.png',
-      ],
+      globPatterns: [...offlineAssets],
       manifestTransforms: [
         (entries) => {
-          const allowed = new Set([
-            'offline.html',
-            'favicon.ico',
-            'apple-touch-icon.png',
-            'pwa-192x192.png',
-            'pwa-512x512.png',
-            'pwa-maskable-512x512.png',
-          ])
+          const allowed = new Set<string>(offlineAssets)
 
           return {
             manifest: entries.filter(entry => allowed.has(entry.url.replace(/^\//, ''))),
             warnings: [],
           }
-        },
-      ],
-      navigateFallback: undefined,
-      navigationPreload: true,
-      runtimeCaching: [
-        {
-          urlPattern: ({ request }) => request.mode === 'navigate',
-          handler: 'NetworkOnly',
-          options: {
-            precacheFallback: {
-              fallbackURL: '/offline.html',
-            },
-          },
         },
       ],
     },

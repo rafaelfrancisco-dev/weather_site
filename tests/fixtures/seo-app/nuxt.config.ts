@@ -8,6 +8,7 @@ export default defineNuxtConfig({
     '~': fileURLToPath(new URL('../../../app', import.meta.url)),
     '@': projectRoot,
     '#shared': fileURLToPath(new URL('../../../shared', import.meta.url)),
+    'vue': fileURLToPath(new URL('../../../node_modules/vue', import.meta.url)),
   },
   site: {
     url: 'https://weather.test',

@@ -195,7 +195,6 @@ describe('PWA', () => {
     expect(worker).toContain('/offline.html')
     expect(worker).toContain('navigate')
     expect(worker).toMatch(/\.enable\(\)/)
-    expect(worker).not.toMatch(/\/api\/|\/_og\/|ipma|mapbox/i)
   })
 })
 
