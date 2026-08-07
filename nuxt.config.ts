@@ -147,6 +147,12 @@ export default defineNuxtConfig({
   },
   nitro: {
     serverAssets: [{ baseName: 'ipma', dir: ipmaWasmDir }],
+    // Vercel's file tracer currently omits Vue's conditional `index.mjs`
+    // export with Nuxt 4.5, leaving the deployed function unable to start.
+    // Bundle Vue into Nitro instead of relying on the incomplete traced copy.
+    externals: {
+      inline: ['vue'],
+    },
     storage: {
       // All defineCachedFunction calls in server/utils/ipma.ts (and
       // map-forecast.get.ts) set `swr: false`, so Nitro forwards a per-entry
