@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@nuxt/test-utils": "^4.0.3",
-    "vitest": "^4.1.9",
+    "vitest": "^4.1.11",
     "workbox-navigation-preload": "^7.4.1",
     "workbox-precaching": "^7.4.1",
     "workbox-routing": "^7.4.1",
