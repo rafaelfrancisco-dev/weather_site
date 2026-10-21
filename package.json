@@ -46,7 +46,10 @@
     "@vercel/speed-insights": {
       "vue-router": "$vue-router"
     },
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "satori": {
+      "fflate": "^0.7.5"
+    }
   },
   "devDependencies": {
     "@nuxt/test-utils": "^4.0.3",
