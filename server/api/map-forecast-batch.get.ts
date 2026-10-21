@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nuxt'
+import type { MapForecastBatchEntry } from '#shared/map-types'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -14,14 +15,14 @@ export default defineEventHandler(async (event) => {
     ids.map(async (id) => {
       try {
         const fc = await cachedForecast(event, id)
-        const today = (fc as unknown as { daily: { tMax: number; weatherTypeID: number; forecastDate: string }[] }).daily?.[0]
-        return { id: String(id), tmax: today?.tMax ?? null, wt: today?.weatherTypeID ?? null }
+        const today = (fc as unknown as { daily: { tMax: number; tMin: number; weatherTypeID: number; forecastDate: string }[] }).daily?.[0]
+        return { id: String(id), tmax: today?.tMax ?? null, tmin: today?.tMin ?? null, wt: today?.weatherTypeID ?? null }
       } catch (error) {
         Sentry.captureException(error)
-        return { id: String(id), tmax: null, wt: null }
+        return { id: String(id), tmax: null, tmin: null, wt: null }
       }
     })
   )
 
-  return results as { id: string; tmax: number | null; wt: number | null }[]
+  return results as MapForecastBatchEntry[]
 })

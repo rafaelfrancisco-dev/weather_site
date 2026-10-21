@@ -55,8 +55,17 @@ const {
   hourlyGrid,
   meteogramModel,
   dailyRangeModel,
-  observationGrid
+  observationGrid,
+  forecastError,
+  forecastLoading,
+  retryForecast
 } = useLocationForecast(id, lang, t)
+
+// The raw fetch error may carry upstream/internal detail, so it isn't shown —
+// same treatment as the bootstrap error in layouts/default.vue.
+watch(forecastError, (err) => {
+  if (err) console.error('[forecast]', err)
+})
 
 const seoTitle = computed(() => locationMeta.value?.name ?? 'MET·PT')
 const seoDescription = computed(() => locationMeta.value
@@ -104,7 +113,25 @@ const tabs = computed(() => [
       >{{ tb.label }}</button>
     </div>
 
-    <ForecastTab v-if="tab === 'forecast'" :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :meteogram="meteogramModel" :daily-range="dailyRangeModel" :primary="c.primary" :t="t" />
+    <template v-if="tab === 'forecast'">
+      <!-- Only the forecast pane is replaced: the header, warning banner, tab
+           bar and Observations tab stay usable while this location's forecast
+           is unavailable. -->
+      <div
+        v-if="forecastError"
+        style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:56px 20px; color:oklch(0.55 0.21 27); font-size:14px; text-align:center;"
+      >
+        <div>{{ t.forecastError }}</div>
+        <button
+          type="button"
+          :disabled="forecastLoading"
+          style="font-family:inherit; font-size:13px; font-weight:500; color:oklch(0.55 0.21 27); background:none; border:1px solid oklch(0.55 0.21 27); border-radius:6px; padding:7px 14px; cursor:pointer;"
+          @click="retryForecast"
+        >{{ t.retry }}</button>
+      </div>
+
+      <ForecastTab v-else :hourly-grid="hourlyGrid" :daily-rows="dailyRows" :meteogram="meteogramModel" :daily-range="dailyRangeModel" :primary="c.primary" :t="t" />
+    </template>
     <ObservationsTab v-if="tab === 'obs'" :observation-grid="observationGrid" :t="t" :primary="c.primary" :soft="c.soft" :loading="observationsLoading" />
   </template>
 </template>

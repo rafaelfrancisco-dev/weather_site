@@ -195,7 +195,7 @@ export default defineNuxtConfig({
   // (server/utils/ipma.ts) and to REVALIDATE_OBSERVATIONS_AFTER_MS in
   // useLocationsData.ts — keep all three in sync.
   //
-  // `/` has no routeRule: server/routes/index.get.ts (a Nitro file route)
+  // `/` has no routeRule: server/routes/index.ts (a Nitro file route)
   // redirects hard loads straight to the last-visited location via a client
   // cookie, with its own `Cache-Control: no-store` since the response varies
   // per-cookie and must never be edge-cached.

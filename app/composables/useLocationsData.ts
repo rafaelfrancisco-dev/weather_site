@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nuxt'
+import type { NuxtApp } from '#app'
 import type {
   JSLocation,
   JSDistrict,
@@ -8,6 +9,7 @@ import type {
   JSStationObservation
 } from '#shared/ipma-types'
 import { createLabelLookup } from '~/utils/transform'
+import { cachedUnlessRefreshing } from '~/utils/asyncDataCache'
 
 interface ObservationsPayload {
   stations: JSStation[]
@@ -31,6 +33,11 @@ const REVALIDATE_BOOTSTRAP_AFTER_MS = 60 * 60 * 1000
 const REVALIDATE_OBSERVATIONS_AFTER_MS = 10 * 60 * 1000
 let revalidationWired = false
 
+// See app/utils/asyncDataCache.ts for why the cause guard in there is
+// load-bearing: cache on mount, always refetch on an explicit refresh().
+const observationsCachePolicy = (key: string, nuxtApp: NuxtApp, ctx: { cause: string }) =>
+  cachedUnlessRefreshing<ObservationsPayload | null>(key, nuxtApp, ctx)
+
 export function useLocationsData() {
   const requestFetch = useRequestFetch()
   const { data, error, refresh } = useAsyncData<Bootstrap>('ipma-bootstrap', async () => {
@@ -41,13 +48,25 @@ export function useLocationsData() {
       requestFetch<JSLookupDescription[]>('/api/weather-types')
     ])
     return { locations, districts, warnings, weatherTypeDescriptions }
-  })
+  }, { dedupe: 'defer' })
 
+  // `server: false` puts this on a different client init path to the bootstrap
+  // above (nuxt/dist/app/composables/asyncData.js): the `lazy && immediate`
+  // branch re-queues the fetch on *every* mount regardless of status, and the
+  // default `dedupe: 'cancel'` only aborts a shared AbortController that this
+  // plain handler never receives — so every caller's request actually hit the
+  // network. useLocationsData() runs from 3 call sites on a location page
+  // (layout, page, useLocationForecast) and 4 on /maps, which meant 3 parallel
+  // fetches of an ~850 KB payload per page view and 2 more on every location
+  // navigation. `dedupe: 'defer'` collapses the concurrent burst onto one
+  // promise; getCachedData stops the refetch on later mounts.
   const { data: observationsData, status: observationsStatus, refresh: refreshObservations } =
     useAsyncData<ObservationsPayload | null>('ipma-observations', () => requestFetch<ObservationsPayload>('/api/observations'), {
       server: false,
       lazy: true,
-      default: () => null
+      default: () => null,
+      dedupe: 'defer',
+      getCachedData: observationsCachePolicy
     })
 
   // useLocationsData() is called from several components/pages sharing the

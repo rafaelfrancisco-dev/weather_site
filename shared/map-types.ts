@@ -19,6 +19,16 @@ export interface FcPoint {
   uv: number | null
 }
 
+// Response shape of /api/map-forecast-batch — today's headline values for a
+// batch of location ids. Shared by the map's viewport fetch (WeatherMap.vue)
+// and the district-focus list (useFocusedLocationForecasts.ts).
+export interface MapForecastBatchEntry {
+  id: string
+  tmax: number | null
+  tmin: number | null
+  wt: number | null
+}
+
 export interface WarnEntry {
   type: string
   level: string

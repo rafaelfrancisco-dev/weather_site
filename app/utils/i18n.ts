@@ -53,6 +53,7 @@ export function strings(lang: Lang) {
     maxLabel: 'Max',
     minLabel: 'Min',
     bootstrapError: "Couldn't load forecast data. Please try again in a moment.",
+    forecastError: "Couldn't load the forecast for this location.",
     retry: 'Retry',
   }
   const pt = {
@@ -107,6 +108,7 @@ export function strings(lang: Lang) {
     maxLabel: 'Máx',
     minLabel: 'Mín',
     bootstrapError: 'Não foi possível carregar os dados. Tente novamente dentro de momentos.',
+    forecastError: 'Não foi possível carregar a previsão para este local.',
     retry: 'Tentar novamente',
   }
   return lang === 'pt' ? pt : en

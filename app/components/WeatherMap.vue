@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import * as Sentry from '@sentry/nuxt'
 import type { GeoJSONSource, Map, Popup } from 'mapbox-gl'
-import type { FcPoint, MapFocus, MapLayer, MapPick } from '#shared/map-types'
+import type { FcPoint, MapFocus, MapForecastBatchEntry, MapLayer, MapPick } from '#shared/map-types'
 import { mapboxAccentColor } from '~/utils/mapColors'
 import { districtWarningEntries } from '~/utils/mapDerived'
 import { CAPITALS } from '~/utils/maps'
@@ -143,7 +144,7 @@ async function fetchVisibleLocationForecasts() {
   for (const id of idsToFetch) locationForecastCache.set(id, { tmax: null, wt: null })
 
   try {
-    const batch = await $fetch<{ id: string; tmax: number | null; wt: number | null }[]>('/api/map-forecast-batch', {
+    const batch = await $fetch<MapForecastBatchEntry[]>('/api/map-forecast-batch', {
       query: { ids: idsToFetch.join(',') },
     })
     const returnedIds = new Set<number>()
@@ -158,7 +159,9 @@ async function fetchVisibleLocationForecasts() {
     if (mapReady.value) {
       (map.getSource('locations') as GeoJSONSource | undefined)?.setData(locationsSourceData())
     }
-  } catch {
+  } catch (error) {
+    // Best-effort: drop the placeholder entries so a later moveend retries.
+    Sentry.captureException(error)
     for (const id of idsToFetch) locationForecastCache.delete(id)
   }
 }
