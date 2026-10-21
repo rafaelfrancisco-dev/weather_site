@@ -20,8 +20,8 @@ describe('cachedUnlessRefreshing', () => {
     expect(cachedUnlessRefreshing('ipma-observations', source(), { cause: 'initial' })).toBeUndefined()
   })
 
-  // The regression this guards: a custom getCachedData sets Nuxt's
-  // `granularCachedData`, so it is consulted on refresh causes too. Returning
+  // The regression this guards: with Nuxt 4's default `granularCachedData`,
+  // getCachedData is consulted on refresh causes too. Returning
   // cached data there would make refreshObservations()/refreshBootstrap() —
   // and therefore the visibilitychange revalidation in useLocationsData.ts —
   // silently do nothing.

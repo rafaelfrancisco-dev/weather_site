@@ -2,9 +2,9 @@
 // reused across component remounts but must still refetch on an explicit
 // refresh().
 //
-// Supplying *any* custom getCachedData sets Nitro's `granularCachedData`, which
-// makes Nuxt consult it on manual refreshes too — unlike the default, which
-// only ever answers for 'initial' causes. Without the cause guard below,
+// Nuxt's `experimental.granularCachedData` defaults to true in Nuxt 4, which
+// makes Nuxt consult getCachedData on manual refreshes too, not only for
+// 'initial' causes. Without the cause guard below,
 // refreshObservations()/refreshBootstrap() would be handed the cached value and
 // the visibilitychange revalidation in useLocationsData.ts would silently
 // become a no-op.
